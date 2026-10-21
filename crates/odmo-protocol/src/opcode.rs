@@ -164,12 +164,26 @@ pub mod game {
     pub const DAMAGE_SKIN_CHANGE: i16 = 3153;
     pub const SEAL_OPEN: i16 = 3971;
     pub const SEAL_CLOSE: i16 = 3972;
-    pub const SEAL_SET_LEADER: i16 = 3233;
-    pub const SEAL_REMOVE_LEADER: i16 = 3234;
+    // Seal leader assignment: request carries a u2 card code;
+    // confirmation returns {u4 tamer_id, u2 leader_id}.
+    pub const SEAL_SET_LEADER: i16 = 3232;
+    // Seal leader removal: request carries a u2 card code; server confirms
+    // with {u4 tamer_id, u2 card_id}. Opcode 3233 is shared: an empty
+    // payload is the encyclopedia open request instead.
+    pub const SEAL_REMOVE_LEADER: i16 = 3233;
     pub const SEAL_SET_FAVORITE: i16 = 1334;
-    pub const ENCYCLOPEDIA_LOAD: i16 = 3235;
+    // Encyclopedia open request: opcode 3233 with an empty payload.
+    pub const ENCYCLOPEDIA_LOAD: i16 = 3233;
+    // Encyclopedia list: a 6-byte payload {u4, u2} is a level update;
+    // otherwise {u4 count, count × record{u4 id, u2 level, u8 slot_mask,
+    // 5×u2 enchant(AT,BL,CT,EV,HP), s2 size, u1 rewarded}}, 27-byte records.
     pub const ENCYCLOPEDIA_LOAD_RESPONSE: i16 = 3234;
-    pub const ENCYCLOPEDIA_GET_REWARD: i16 = 3236;
+    // Encyclopedia reward claim {u4 digimon_id};
+    // response {u4 item_id, u2 item_count}.
+    pub const ENCYCLOPEDIA_GET_REWARD: i16 = 3235;
+    // Encyclopedia deck use {u4 deck_id} (1001..).
+    pub const ENCYCLOPEDIA_DECK_USE: i16 = 3236;
+    // Encyclopedia deck buff {u2 option_index}, ENCY_MAX_OPTION == 4.
     pub const ENCYCLOPEDIA_DECK_BUFF: i16 = 3237;
     pub const OTHER_TAMER_DETAIL_INFO_REQUEST: i16 = 16070;
     pub const OTHER_TAMER_DETAIL_INFO_RESPONSE: i16 = 16071;

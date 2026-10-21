@@ -218,7 +218,7 @@ async fn serve_client(
             if raw_packet_type == odmo_protocol::opcode::game::SEAL_REMOVE_LEADER
                 && raw_payload_len == 0
             {
-                info!("Routing no-payload packet 3234 as Encyclopedia load request.");
+                info!("Routing no-payload packet 3233 as Encyclopedia load request.");
             } else {
                 info!(
                     "Routing encyclopedia load request packet={} payload_bytes={}",
