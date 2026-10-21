@@ -198,9 +198,18 @@ impl PortalStore for JsonPortalBridge {
         }
         let payload = fs::read(&path)
             .with_context(|| format!("failed to read map presence {}", path.display()))?;
-        let entries = serde_json::from_slice(&payload)
-            .with_context(|| format!("failed to decode map presence {}", path.display()))?;
-        Ok(entries)
+        match serde_json::from_slice(&payload) {
+            Ok(entries) => Ok(entries),
+            Err(err) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    error = %err,
+                    "discarding stale or corrupted map presence file"
+                );
+                let _ = fs::remove_file(&path);
+                Ok(Vec::new())
+            }
+        }
     }
 
     fn upsert_map_presence(&self, character: &CharacterSummary) -> anyhow::Result<()> {

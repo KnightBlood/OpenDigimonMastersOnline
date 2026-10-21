@@ -135,8 +135,9 @@ pub enum GameRequest {
         validation: String,
     },
     EvolutionUnlock {
-        evolution_type: i32,
-        inven_idx: Option<i16>,
+        evo_slot: i32,
+        items: Vec<EvolutionUnlockItem>,
+        selected_inven_idx: i16,
     },
     RideModeStart,
     RideModeStop,
@@ -600,6 +601,12 @@ pub enum GameRequest {
         validation: String,
         npc_id: i32,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvolutionUnlockItem {
+    pub item_id: u32,
+    pub item_count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1308,6 +1315,81 @@ impl CashShopCoinsPacket {
         writer.write_i32(0);
         writer.write_i32(self.silk);
         writer.write_i32(self.premium);
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CashShopBuyResponsePacket {
+    pub result: u16,
+    pub real_cash: i32,
+    pub bonus_cash: i32,
+    pub success_product_ids: Vec<i32>,
+    pub failed_product_ids: Vec<i32>,
+}
+
+impl CashShopBuyResponsePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::CASHSHOP_BUY);
+        writer.write_u16(self.result);
+        writer.write_i32(self.real_cash);
+        writer.write_i32(self.bonus_cash);
+        writer.write_u8(self.success_product_ids.len() as u8);
+        for &id in &self.success_product_ids {
+            writer.write_i32(id);
+        }
+        writer.write_u8(self.failed_product_ids.len() as u8);
+        for &id in &self.failed_product_ids {
+            writer.write_i32(id);
+        }
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CashShopCropResponsePacket {
+    pub result: i32,
+    pub rtime: i32,
+    pub cash_warehouse_slot: u16,
+    pub slot_type: u8,
+    pub slot_no: u8,
+    pub item_type: u32,
+    pub item_count: u32,
+    pub item_rate: u8,
+    pub item_end_time: u32,
+    pub remain_trade_limit_time: u32,
+}
+
+impl CashShopCropResponsePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::RETRIEVE_ACCOUNT_WAREHOUSE);
+        writer.write_i32(self.result);
+        writer.write_i32(self.rtime);
+        writer.write_u16(self.cash_warehouse_slot);
+        writer.write_u8(self.slot_type);
+        writer.write_u8(self.slot_no);
+        writer.write_u32(self.item_type);
+        writer.write_u32(self.item_count);
+        writer.write_u8(self.item_rate);
+        writer.write_u32(self.item_end_time);
+        writer.write_u32(self.remain_trade_limit_time);
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CashShopWarehousePacket {
+    pub items: Vec<ItemRecord>,
+}
+
+impl CashShopWarehousePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::LOAD_ACCOUNT_WAREHOUSE);
+        writer.write_i16(clamp_i16_len(self.items.len()));
+        for item in &self.items {
+            let record = normalize_item_record(item);
+            writer.write_bytes(&record);
+        }
         writer.finalize()
     }
 }
@@ -4324,15 +4406,32 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::PartnerDelete { slot, validation })
             }
             game::EVOLUTION_UNLOCK => {
-                let evolution_type = reader.read_i32()?;
-                let inven_idx = if reader.remaining_len() >= 2 {
-                    Some(reader.read_i16()?)
+                let evo_slot = reader.read_i32()?;
+                let mut items = Vec::new();
+                let selected_inven_idx = if reader.remaining_len() == 2 {
+                    reader.read_i16()?
+                } else if reader.remaining_len() >= 4 {
+                    let item_count = reader.read_u16()? as usize;
+                    for _ in 0..item_count {
+                        let item_id = reader.read_u32()?;
+                        let item_count = reader.read_u32()?;
+                        items.push(EvolutionUnlockItem {
+                            item_id,
+                            item_count,
+                        });
+                    }
+                    if reader.remaining_len() >= 2 {
+                        reader.read_i16()?
+                    } else {
+                        -1
+                    }
                 } else {
-                    None
+                    -1
                 };
                 Ok(Self::EvolutionUnlock {
-                    evolution_type,
-                    inven_idx,
+                    evo_slot,
+                    items,
+                    selected_inven_idx,
                 })
             }
             game::RIDE_MODE_START => Ok(Self::RideModeStart),
@@ -4556,12 +4655,17 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::CASHSHOP_BUY => {
                 // On-wire layout:
-                //   [u1 item_count][n4 total_price][u8 order_id][n4 product_ids[count]]
-                // order_id is a true 8-byte value, so it is read as a u64.
+                //   [u1 item_count][n4 total_price][u2 or u8 order_id][n4 product_ids[count]]
+                // Order id width varies by server generation: u2 in some
+                // payloads, u8 in newer ones.
                 let amount = reader.read_u8()?;
                 let total_price = reader.read_i32()?;
-                let order_id = reader.read_u64()?;
-                let mut product_ids = Vec::new();
+                let order_id = if reader.remaining_len() >= 8 + (amount as usize) * 4 {
+                    reader.read_u64()?
+                } else {
+                    u64::from(reader.read_u16()?)
+                };
+                let mut product_ids = Vec::with_capacity(amount as usize);
                 for _ in 0..amount {
                     product_ids.push(reader.read_i32()?);
                 }
@@ -4622,8 +4726,8 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::SEAL_REMOVE_LEADER => {
                 if reader.remaining_len() == 0 {
-                    // Opcode 3234 uses the empty-payload form for EncyclopediaOpen,
-                    // while SealMaster unset carries a u16.
+                    // Empty payload selects the encyclopedia open request;
+                    // otherwise this is the seal leader unset with a u16 card code.
                     Ok(Self::EncyclopediaLoad)
                 } else {
                     let _card_code = reader.read_u16()?;
@@ -4638,7 +4742,6 @@ impl TryFrom<RawPacket> for GameRequest {
                     bookmark,
                 })
             }
-            game::ENCYCLOPEDIA_LOAD => Ok(Self::EncyclopediaLoad),
             game::ENCYCLOPEDIA_GET_REWARD => {
                 let digimon_id = reader.read_u32()?;
                 Ok(Self::EncyclopediaGetReward { digimon_id })
@@ -6319,6 +6422,30 @@ mod tests {
     }
 
     #[test]
+    fn evolution_unlock_request_decodes_modern_client_payload() {
+        let mut writer = PacketWriter::new(game::EVOLUTION_UNLOCK);
+        writer.write_i32(1);
+        writer.write_u16(1);
+        writer.write_u32(6_100);
+        writer.write_u32(2);
+        writer.write_i16(-1);
+        let packet = writer.finalize();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        let request = GameRequest::try_from(raw).expect("request should decode");
+        assert_eq!(
+            request,
+            GameRequest::EvolutionUnlock {
+                evo_slot: 1,
+                items: vec![EvolutionUnlockItem {
+                    item_id: 6_100,
+                    item_count: 2,
+                }],
+                selected_inven_idx: -1,
+            }
+        );
+    }
+
+    #[test]
     fn party_invite_response_decodes_modern_client_payload() {
         let mut writer = PacketWriter::new(game::PARTY_INVITE_RESPONSE);
         writer.write_i32(1);
@@ -6961,6 +7088,27 @@ mod tests {
                 total_price: 1500,
                 order_id: 0x0102_0304_0506_0708,
                 product_ids: vec![40_010, 40_020],
+            }
+        );
+    }
+
+    #[test]
+    fn cash_shop_buy_request_decodes_u16_order_id_payload() {
+        let mut writer = PacketWriter::new(game::CASHSHOP_BUY);
+        writer.write_u8(1);
+        writer.write_i32(185);
+        writer.write_u16(0);
+        writer.write_i32(31_030_042);
+        let packet = writer.finalize();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        let request = GameRequest::try_from(raw).expect("request should decode");
+        assert_eq!(
+            request,
+            GameRequest::CashShopBuy {
+                amount: 1,
+                total_price: 185,
+                order_id: 0,
+                product_ids: vec![31_030_042],
             }
         );
     }
@@ -7943,5 +8091,77 @@ mod sync_1006_preservation {
             );
             assert_frame_invariants("LoadMobBuffsPacket", &lmb, game::LOAD_BUFFS);
         }
+    }
+
+    #[test]
+    fn cash_shop_buy_response_packet_encodes_multibuy_wire_layout() {
+        let packet = CashShopBuyResponsePacket {
+            result: 0,
+            real_cash: 5000,
+            bonus_cash: 200,
+            success_product_ids: vec![10001, 10002],
+            failed_product_ids: vec![10003],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::CASHSHOP_BUY);
+        let mut reader = PacketReader::new(raw.payload);
+        assert_eq!(reader.read_u16().unwrap(), 0);
+        assert_eq!(reader.read_i32().unwrap(), 5000);
+        assert_eq!(reader.read_i32().unwrap(), 200);
+        assert_eq!(reader.read_u8().unwrap(), 2);
+        assert_eq!(reader.read_i32().unwrap(), 10001);
+        assert_eq!(reader.read_i32().unwrap(), 10002);
+        assert_eq!(reader.read_u8().unwrap(), 1);
+        assert_eq!(reader.read_i32().unwrap(), 10003);
+    }
+
+    #[test]
+    fn cash_shop_crop_response_packet_encodes_wire_layout() {
+        let packet = CashShopCropResponsePacket {
+            result: 100,
+            rtime: 0,
+            cash_warehouse_slot: 3,
+            slot_type: 0,
+            slot_no: 5,
+            item_type: 9001,
+            item_count: 10,
+            item_rate: 100,
+            item_end_time: 0,
+            remain_trade_limit_time: 0,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::RETRIEVE_ACCOUNT_WAREHOUSE);
+        let mut reader = PacketReader::new(raw.payload);
+        assert_eq!(reader.read_i32().unwrap(), 100);
+        assert_eq!(reader.read_i32().unwrap(), 0);
+        assert_eq!(reader.read_u16().unwrap(), 3);
+        assert_eq!(reader.read_u8().unwrap(), 0);
+        assert_eq!(reader.read_u8().unwrap(), 5);
+        assert_eq!(reader.read_u32().unwrap(), 9001);
+        assert_eq!(reader.read_u32().unwrap(), 10);
+        assert_eq!(reader.read_u8().unwrap(), 100);
+        assert_eq!(reader.read_u32().unwrap(), 0);
+        assert_eq!(reader.read_u32().unwrap(), 0);
+    }
+
+    #[test]
+    fn cash_shop_warehouse_packet_encodes_wire_layout() {
+        let packet = CashShopWarehousePacket {
+            items: vec![ItemRecord::new(5001, 2), ItemRecord::new(5002, 1)],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::LOAD_ACCOUNT_WAREHOUSE);
+        let mut reader = PacketReader::new(raw.payload);
+        assert_eq!(reader.read_i16().unwrap(), 2);
+        let item1 = reader.read_bytes(69).unwrap();
+        assert_eq!(item1.len(), 69);
+        let item2 = reader.read_bytes(69).unwrap();
+        assert_eq!(item2.len(), 69);
     }
 }

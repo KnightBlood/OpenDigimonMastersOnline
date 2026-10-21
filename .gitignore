@@ -55,9 +55,15 @@ reference/
 .agents/
 refactor/
 
+# Local-only working folders (not published)
+docs/
+scripts/
+.kiro/
+
 # Runtime data (portal bridge JSON, dev-mode database)
 .odmo-data/
 .odmo-portal/
+.codex-tmp/
 
 # Database
 *.db
@@ -85,3 +91,6 @@ coverage*.xml
 *.crt
 *.cer
 *.pem
+CLAUDE.md
+AGENTS.md
+opencode.json
