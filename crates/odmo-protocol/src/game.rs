@@ -1031,6 +1031,36 @@ impl ItemMakeResultPacket {
     }
 }
 
+/// Tamer item-skill notices. `ItemSkillApply` — opcode 1330 carries {u4
+/// index; u4 skill ref} applied through the client slide-list; the expire
+/// (1331) and remove (1332) gates carry {u1 count; count x u4 skill id}
+/// batches refreshed against CSkillTable rows.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ItemSkillBatchPacket {
+    pub index: u32,      // apply gate only
+    pub skill_ids: Vec<u32>, // one u16-keyed row per count
+}
+
+impl ItemSkillBatchPacket {
+    pub fn encode_on(&self, opcode: i16) -> Vec<u8> {
+        assert!(
+            self.skill_ids.len() <= u8::MAX as usize,
+            "skill ids overflow u1"
+        );
+        let mut writer = PacketWriter::new(opcode);
+        if opcode == game::TAMER_ITEM_SKILL_APPLY {
+            writer.write_u32(self.index);
+            writer.write_u32(*self.skill_ids.first().unwrap_or(&0));
+        } else {
+            writer.write_u8(self.skill_ids.len() as u8);
+            for skill_id in &self.skill_ids {
+                writer.write_u32(*skill_id);
+            }
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7088,6 +7118,33 @@ mod tests {
         let make_raw = PacketReader::from_frame(&make).expect("frame should decode");
         assert_eq!(make_raw.packet_type, game::ITEM_MAKE_RESULT);
         assert_eq!(make_raw.payload, [2, 5]);
+    }
+
+    #[test]
+    fn item_skill_batches_fill_expected_bodies_per_opcode() {
+        let apply = ItemSkillBatchPacket { index: 3, skill_ids: vec![77] }
+            .encode_on(game::TAMER_ITEM_SKILL_APPLY);
+        let apply_raw = PacketReader::from_frame(&apply).expect("frame should decode");
+        assert_eq!(apply_raw.packet_type, game::TAMER_ITEM_SKILL_APPLY);
+        assert_eq!(apply_raw.payload, [3, 0, 0, 0, 77, 0, 0, 0]);
+
+        let expire = ItemSkillBatchPacket {
+            index: 0,
+            skill_ids: vec![10, 20],
+        }
+        .encode_on(game::TAMER_ITEM_SKILL_EXPIRE);
+        let expire_raw = PacketReader::from_frame(&expire).expect("frame should decode");
+        assert_eq!(expire_raw.packet_type, game::TAMER_ITEM_SKILL_EXPIRE);
+        assert_eq!(expire_raw.payload, [2, 10, 0, 0, 0, 20, 0, 0, 0]);
+
+        let remove = ItemSkillBatchPacket {
+            index: 0,
+            skill_ids: vec![30],
+        }
+        .encode_on(game::TAMER_ITEM_SKILL_REMOVE);
+        let remove_raw = PacketReader::from_frame(&remove).expect("frame should decode");
+        assert_eq!(remove_raw.packet_type, game::TAMER_ITEM_SKILL_REMOVE);
+        assert_eq!(remove_raw.payload, [1, 30, 0, 0, 0]);
     }
 
     #[test]

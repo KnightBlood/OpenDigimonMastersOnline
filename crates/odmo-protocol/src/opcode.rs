@@ -161,6 +161,13 @@ pub mod game {
     // fires ev68 {slot}, 5 fires ev586 {5000} and 9 fires ev68 {1}
     // (44996 0xD9B730).
     pub const ITEM_MAKE_RESULT: i16 = 3983;
+    // Tamer item-skill flow: 1330 apply {r4 index; r4 skill ref} through the
+    // client list at +1092 plus a CSkillTable row check; 1331 expire and 1332
+    // remove are {u1 count; count x r4 skill ids} batches
+    // (44996 0xDC6050 / 0xDC6160 / 0xDC62B0).
+    pub const TAMER_ITEM_SKILL_APPLY: i16 = 1330;
+    pub const TAMER_ITEM_SKILL_EXPIRE: i16 = 1331;
+    pub const TAMER_ITEM_SKILL_REMOVE: i16 = 1332;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

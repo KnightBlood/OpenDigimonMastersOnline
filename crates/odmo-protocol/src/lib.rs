@@ -44,7 +44,7 @@ pub use game::{
     ItemCropMoneyPacket, ChangeLimitedAttributePacket, NpcSellRow,
     HotTimeEventPacket, ItemTermPacket, SingleValueNoticePacket, TamerOptionPacket,
     SkillResultChipPacket, CrossInvenSlotSizePacket, ItemMoveClearPacket,
-    CashTradeTimeoutPacket, ItemMakeResultPacket,
+    CashTradeTimeoutPacket, ItemMakeResultPacket, ItemSkillBatchPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
