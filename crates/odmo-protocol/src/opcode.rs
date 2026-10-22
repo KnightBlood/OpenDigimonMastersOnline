@@ -274,6 +274,10 @@ pub mod game {
     // through ev42; hits roll into Cheat_ItemRank.txt + notepad
     // (44996 0xD91FC0, raw asm).
     pub const MASTER_RANK_ITEM_RUN: i16 = 9982;
+    // Skill range-persist end {u4 id}: drops the tracked range-persist
+    // effect entry whose entity carries the id and respawns its tail
+    // particle (44996 0xDCA020, raw asm).
+    pub const SKILL_RANGE_PERSIST_END: i16 = 1124;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

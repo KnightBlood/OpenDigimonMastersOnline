@@ -1637,6 +1637,22 @@ impl MasterRankItemRunPacket {
     }
 }
 
+/// `Skill::Range_PersistEnd` — opcode 1124: one u4 id ending the tracked
+/// range-persist effect entry whose entity carries the id, respawning its
+/// tail particle and refreshing the active list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillRangePersistEndPacket {
+    pub id: u32,
+}
+
+impl SkillRangePersistEndPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_RANGE_PERSIST_END);
+        writer.write_u32(self.id);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8150,6 +8166,15 @@ mod tests {
         assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
         assert_eq!(&raw.payload[2..6], &1u32.to_le_bytes());
         assert_eq!(raw.payload[6..8], [3, 0]);
+    }
+
+    #[test]
+    fn skill_range_persist_end_writes_id() {
+        let packet = SkillRangePersistEndPacket { id: 7 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_RANGE_PERSIST_END);
+        assert_eq!(raw.payload, 7u32.to_le_bytes());
     }
 
     #[test]
