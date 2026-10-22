@@ -1210,6 +1210,55 @@ impl PartnerScalePacket {
     }
 }
 
+/// Master/GM debug notices. `MasterConn` — opcode 9963: one u4 count
+/// rendered as the "Connect" text; `MasterPayCash` — opcode 9964: two i64
+/// amounts (silk plus premium cash) rendered as the payout text; `GMQuest` —
+/// opcode 9972: a fixed 0x598-byte blob copied verbatim into the client
+/// table at +0x766C.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MasterConnPacket {
+    pub count: u32,
+}
+
+impl MasterConnPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_CONN_COUNT);
+        writer.write_u32(self.count);
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MasterPayCashPacket {
+    pub silk: i64, // unresolved
+    pub cash: i64, // unresolved
+}
+
+impl MasterPayCashPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_PAY_CASH);
+        writer.write_i64(self.silk);
+        writer.write_i64(self.cash);
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GmQuestPacket {
+    pub blob: Vec<u8>, // fixed 0x598 bytes
+}
+
+impl GmQuestPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert_eq!(self.blob.len(), 0x598, "gm quest blob is fixed size");
+        let mut writer = PacketWriter::new(game::MASTER_GM_QUEST);
+        for byte in &self.blob {
+            writer.write_u8(*byte);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7361,6 +7410,28 @@ mod tests {
         let scale_raw = PacketReader::from_frame(&scale).expect("frame should decode");
         assert_eq!(scale_raw.packet_type, game::MASTER_PARTNER_SCALE);
         assert_eq!(scale_raw.payload, [5, 0, 0, 0, 120, 0, 7, 0, 0, 0]);
+    }
+
+    #[test]
+    fn master_debug_notices_fill_expected_bodies() {
+        let conn = MasterConnPacket { count: 42 }.encode();
+        let conn_raw = PacketReader::from_frame(&conn).expect("frame should decode");
+        assert_eq!(conn_raw.packet_type, game::MASTER_CONN_COUNT);
+        assert_eq!(conn_raw.payload, 42u32.to_le_bytes());
+
+        let pay = MasterPayCashPacket { silk: 5, cash: 9 }.encode();
+        let pay_raw = PacketReader::from_frame(&pay).expect("frame should decode");
+        assert_eq!(pay_raw.packet_type, game::MASTER_PAY_CASH);
+        assert_eq!(
+            pay_raw.payload,
+            5i64.to_le_bytes().iter().chain(&9i64.to_le_bytes()).copied().collect::<Vec<u8>>()
+        );
+
+        let quest = GmQuestPacket { blob: vec![7u8; 0x598] }.encode();
+        let quest_raw = PacketReader::from_frame(&quest).expect("frame should decode");
+        assert_eq!(quest_raw.packet_type, game::MASTER_GM_QUEST);
+        assert_eq!(quest_raw.payload.len(), 0x598);
+        assert!(quest_raw.payload.iter().all(|byte| *byte == 7));
     }
 
     #[test]

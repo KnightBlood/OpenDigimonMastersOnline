@@ -192,6 +192,13 @@ pub mod game {
     // Partner scale {r4 handler; u2 scale; r4 arg}: entity lookup + scale
     // application through the resolved digimon (44996 0xDCAB10).
     pub const MASTER_PARTNER_SCALE: i16 = 9942;
+    // Master/GM debug notices: 9963 conn count {r4} pops "Connect\n%d"; 9964
+    // cash payout {i64; i64} pops the premium text; 9972 GM quest copies a
+    // fixed 0x598-byte blob straight into the client table at +0x766C
+    // (44996 0xD910A0 / 0xD91140 / 0xD91250).
+    pub const MASTER_CONN_COUNT: i16 = 9963;
+    pub const MASTER_PAY_CASH: i16 = 9964;
+    pub const MASTER_GM_QUEST: i16 = 9972;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
