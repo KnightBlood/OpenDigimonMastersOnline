@@ -2680,6 +2680,46 @@ impl PortableItemFailPacket {
     }
 }
 
+/// `CropMoney` notice — opcode 3911.
+/// Modern parser (0xDA5280) reads four u4s: the first two form one i64 and
+/// the trailing pair feeds the coin-delta sums; the client closes three fixed
+/// UI handlers, plays the coin sound, builds the money display rings and
+/// pings event 671 with the i64 sum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ItemCropMoneyPacket {
+    pub first_amount_lo: u32,  // low half of the first i64 amount
+    pub first_amount_hi: u32,  // high half of the first i64 amount
+    pub third: u32,            // unresolved coin-delta field
+    pub fourth: u32,           // unresolved coin-delta field
+}
+
+impl ItemCropMoneyPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_CROP_MONEY);
+        writer.write_u32(self.first_amount_lo);
+        writer.write_u32(self.first_amount_hi);
+        writer.write_u32(self.third);
+        writer.write_u32(self.fourth);
+        writer.finalize()
+    }
+}
+
+/// `ChangeLimitedAttribute` notice — opcode 3934: {u2; u1} handed to event 585.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ChangeLimitedAttributePacket {
+    pub attribute: u16, // unresolved
+    pub flag: u8,       // unresolved (conditionally consumed)
+}
+
+impl ChangeLimitedAttributePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_CHANGE_LIMITED_ATTRIBUTE);
+        writer.write_u16(self.attribute);
+        writer.write_u8(self.flag);
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6798,6 +6838,27 @@ mod tests {
         let portable_raw = PacketReader::from_frame(&portable).expect("frame should decode");
         assert_eq!(portable_raw.packet_type, game::ITEM_PORTABLE_FAIL);
         assert_eq!(portable_raw.payload, (7701u32).to_le_bytes());
+    }
+
+    #[test]
+    fn crop_money_and_limited_attribute_fill_expected_bodies() {
+        let crop = ItemCropMoneyPacket {
+            first_amount_lo: 100,
+            first_amount_hi: 0,
+            third: 40,
+            fourth: 60,
+        }
+        .encode();
+        let crop_raw = PacketReader::from_frame(&crop).expect("frame should decode");
+        assert_eq!(crop_raw.packet_type, game::ITEM_CROP_MONEY);
+        assert_eq!(crop_raw.payload.len(), 16);
+        assert_eq!(&crop_raw.payload[..4], &100u32.to_le_bytes());
+        assert_eq!(&crop_raw.payload[8..16], &40u32.to_le_bytes().iter().chain(&60u32.to_le_bytes()).copied().collect::<Vec<u8>>()[..]);
+
+        let limited = ChangeLimitedAttributePacket { attribute: 9, flag: 1 }.encode();
+        let limited_raw = PacketReader::from_frame(&limited).expect("frame should decode");
+        assert_eq!(limited_raw.packet_type, game::ITEM_CHANGE_LIMITED_ATTRIBUTE);
+        assert_eq!(limited_raw.payload, [9, 0, 1]);
     }
 
     #[test]

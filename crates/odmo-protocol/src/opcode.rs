@@ -414,6 +414,14 @@ pub mod game {
     // Portable-item failure {u4 code}: switch 7701 pings ev212, 7702 and 7703
     // gate on prior portable-item usage (44996 registry 3943/0xDAFE70).
     pub const ITEM_PORTABLE_FAIL: i16 = 3943;
+    // Crop-money flow {u4; u4; u4; u4}: the first two u4s form one i64 and
+    // the trailing pair feeds the coin delta sums; closes three fixed UI
+    // handlers first (23100/22900/23000), plays the coin sound and pings
+    // ev671 (44996 registry 3911/0xDA5280).
+    pub const ITEM_CROP_MONEY: i16 = 3911;
+    // Limited-attribute change {u2; u1} -> event 585 with an u1 gate slot
+    // (44996 registry 3934/0xDACE80).
+    pub const ITEM_CHANGE_LIMITED_ATTRIBUTE: i16 = 3934;
     // Enchant-info notice: {u4 digimon handler; u2 base; five u2 values} —
     // the five u2s insert into fixed positions 0, 1, 2, 4 and 6 of the
     // digimon's enchant-info list, then the client refreshes that digimon
