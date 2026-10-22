@@ -1174,6 +1174,42 @@ impl EventActivePacket {
     }
 }
 
+/// `SkillSuccess` — opcode 1328: {u4 skill index; u4 argument}; the client
+/// resolves the slide-list row and rebuilds the skill presentation struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TamerSkillSuccessPacket {
+    pub index: u32, // slide-list row index
+    pub arg: u32,   // unresolved
+}
+
+impl TamerSkillSuccessPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::TAMER_SKILL_SUCCESS);
+        writer.write_u32(self.index);
+        writer.write_u32(self.arg);
+        writer.finalize()
+    }
+}
+
+/// `PartnerScale` — opcode 9942: {u4 handler; u2 scale; u4 arg}; the client
+/// resolves the entity and applies the scale through it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PartnerScalePacket {
+    pub handler: u32, // sub_DDA4E0 lookup
+    pub scale: u16,   // unresolved
+    pub arg: u32,     // unresolved
+}
+
+impl PartnerScalePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_PARTNER_SCALE);
+        writer.write_u32(self.handler);
+        writer.write_u16(self.scale);
+        writer.write_u32(self.arg);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7312,6 +7348,19 @@ mod tests {
         assert_eq!(&raw.payload[4..8], &[1, 2, 3, 4]);
         assert_eq!(raw.payload[8], 1);
         assert_eq!(&raw.payload[9..80], &row);
+    }
+
+    #[test]
+    fn skill_success_and_partner_scale_fill_expected_bodies() {
+        let success = TamerSkillSuccessPacket { index: 3, arg: 9 }.encode();
+        let success_raw = PacketReader::from_frame(&success).expect("frame should decode");
+        assert_eq!(success_raw.packet_type, game::TAMER_SKILL_SUCCESS);
+        assert_eq!(success_raw.payload, [3, 0, 0, 0, 9, 0, 0, 0]);
+
+        let scale = PartnerScalePacket { handler: 5, scale: 120, arg: 7 }.encode();
+        let scale_raw = PacketReader::from_frame(&scale).expect("frame should decode");
+        assert_eq!(scale_raw.packet_type, game::MASTER_PARTNER_SCALE);
+        assert_eq!(scale_raw.payload, [5, 0, 0, 0, 120, 0, 7, 0, 0, 0]);
     }
 
     #[test]

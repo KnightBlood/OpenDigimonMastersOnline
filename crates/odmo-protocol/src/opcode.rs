@@ -185,6 +185,13 @@ pub mod game {
     // ev130; each row is 68 opaque bytes plus a u2 and a u1 tail
     // (44996 0xD092D0).
     pub const EVENT_ACTIVE: i16 = 3138;
+    // Tamer skill success {r4 skill index; r4 argument}: the client looks up
+    // the slide-list row and rebuilds the skill presentation struct (reads
+    // stop at the two u4s) (44996 0xDC56F0).
+    pub const TAMER_SKILL_SUCCESS: i16 = 1328;
+    // Partner scale {r4 handler; u2 scale; r4 arg}: entity lookup + scale
+    // application through the resolved digimon (44996 0xDCAB10).
+    pub const MASTER_PARTNER_SCALE: i16 = 9942;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
