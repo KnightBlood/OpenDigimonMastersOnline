@@ -1792,6 +1792,48 @@ impl SkillMonsterSkillEffectPacket {
     }
 }
 
+/// `Skill::AroundSkill` — opcode 1110: {u4 caster; u4 skill_id; u2 count;
+/// u4 param; count x {u1 flag; u4 handler; u4 value; u1 level}}. Each hit
+/// is resolved through the handler and pushed into the damage dispatch
+/// together with the third field; flagged hits also pop the wide-skill
+/// console line (event 42) and refresh the caster marker.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SkillAroundHit {
+    pub flag: u8,    // wide-skill console flag on the hit
+    pub handler: u32,
+    pub value: u32, // damage/name payload carried into the dispatch
+    pub level: u8,  // hit level subtracted client-side
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SkillAroundSkillPacket {
+    pub caster: u32,
+    pub skill_id: u32,
+    pub attack_param: u32, // forwarded to the damage dispatch unmodified
+    pub hits: Vec<SkillAroundHit>,
+}
+
+impl SkillAroundSkillPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.hits.len() <= u16::MAX as usize,
+            "around-skill hits overflow u2"
+        );
+        let mut writer = PacketWriter::new(game::SKILL_AROUND_SKILL);
+        writer.write_u32(self.caster);
+        writer.write_u32(self.skill_id);
+        writer.write_u16(self.hits.len() as u16);
+        writer.write_u32(self.attack_param);
+        for hit in &self.hits {
+            writer.write_u8(hit.flag);
+            writer.write_u32(hit.handler);
+            writer.write_u32(hit.value);
+            writer.write_u8(hit.level);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8423,6 +8465,34 @@ mod tests {
         assert_eq!(&raw.payload[24..28], &2u32.to_le_bytes());
         assert_eq!(&raw.payload[28..32], &30u32.to_le_bytes());
         assert_eq!(&raw.payload[32..36], &40u32.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_around_skill_writes_head_and_counted_hits() {
+        let packet = SkillAroundSkillPacket {
+            caster: 77,
+            skill_id: 1200,
+            attack_param: 5,
+            hits: vec![SkillAroundHit {
+                flag: 1,
+                handler: 9,
+                value: 88,
+                level: 3,
+            }],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_AROUND_SKILL);
+        assert_eq!(raw.payload.len(), 10 + 4 + 10);
+        assert_eq!(&raw.payload[..4], &77u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &1200u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..10], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[10..14], &5u32.to_le_bytes());
+        assert_eq!(raw.payload[14], 1);
+        assert_eq!(&raw.payload[15..19], &9u32.to_le_bytes());
+        assert_eq!(&raw.payload[19..23], &88u32.to_le_bytes());
+        assert_eq!(raw.payload[23], 3);
     }
 
     #[test]

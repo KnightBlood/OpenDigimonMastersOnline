@@ -307,6 +307,14 @@ pub mod game {
     // per target; kind 19 stops the effect, other kinds pop the ev42 error
     // line (44996 0xDC9840, raw asm).
     pub const SKILL_MONSTER_SKILL_EFFECT: i16 = 1123;
+    // Skill around-skill {u4 caster; u4 skill_id; u2 count; u4 param;
+    // count x {u1 flag; u4 handler; u4 value; u1 level}}: every hit is
+    // resolved through the handler and pushed into the damage dispatch
+    // together with the param; flag hits also pop the wide-skill console
+    // line (event 42) and refresh the caster marker. CMonsterTable row
+    // kinds 16 and 17 are a variant that consumes an extra leading
+    // count/list block first (unresolved) (44996 0xDC25B0).
+    pub const SKILL_AROUND_SKILL: i16 = 1110;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

@@ -58,6 +58,7 @@ pub use game::{
     MasterRankItemRunPacket, SkillRangePersistEndPacket, SkillChipCoolTimePacket,
     SkillRemoveChipPacket, SkillAddChipPacket, SkillActiveEffectPacket, SkillMonsterBuffPacket,
     SkillMonsterSkillTarget, SkillMonsterSkillEffectPacket,
+    SkillAroundHit, SkillAroundSkillPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
