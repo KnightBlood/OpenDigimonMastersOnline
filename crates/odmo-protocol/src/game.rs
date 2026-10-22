@@ -1950,6 +1950,39 @@ impl MasterConnCountInfoPacket {
     }
 }
 
+/// `Item::CapsuleToItem` — opcode 3937: {u4 count; per row {u1 slot; u2
+/// code; u4 param; u4 next_count}}. The loop is a self-terminating chain:
+/// each row carries the following count on the wire, so the trailing count
+/// of the last row is zero. Rows insert into the +0x9DC inventory list
+/// through event 11, and a scene item 901107/901108 additionally triggers
+/// the 901109 cast.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ItemCapsuleRow {
+    pub slot: u8,
+    pub code: u16,
+    pub param: u32, // unresolved per-row value
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ItemCapsuleToItemPacket {
+    pub rows: Vec<ItemCapsuleRow>,
+}
+
+impl ItemCapsuleToItemPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_CAPSULE_TO_ITEM);
+        let remaining = self.rows.len() as u32;
+        writer.write_u32(remaining);
+        for (index, row) in self.rows.iter().enumerate() {
+            writer.write_u8(row.slot);
+            writer.write_u16(row.code);
+            writer.write_u32(row.param);
+            writer.write_u32(remaining - index as u32 - 1);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8676,6 +8709,39 @@ mod tests {
         assert_eq!(raw.payload[9], 0xFF);
         assert_eq!(raw.payload[10], 2);
         assert_eq!(raw.payload[11], 0xFF);
+    }
+
+    #[test]
+    fn item_capsule_to_item_writes_chained_rows() {
+        let packet = ItemCapsuleToItemPacket {
+            rows: vec![
+                ItemCapsuleRow {
+                    slot: 1,
+                    code: 500,
+                    param: 10,
+                },
+                ItemCapsuleRow {
+                    slot: 2,
+                    code: 800,
+                    param: 20,
+                },
+            ],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ITEM_CAPSULE_TO_ITEM);
+        // header 4 + row (1+2+4+4) + row (1+2+4+4)
+        assert_eq!(raw.payload.len(), 4 + 11 + 11);
+        assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
+        assert_eq!(raw.payload[4], 1);
+        assert_eq!(&raw.payload[5..7], &500u16.to_le_bytes());
+        assert_eq!(&raw.payload[7..11], &10u32.to_le_bytes());
+        assert_eq!(&raw.payload[11..15], &1u32.to_le_bytes());
+        assert_eq!(raw.payload[15], 2);
+        assert_eq!(&raw.payload[16..18], &800u16.to_le_bytes());
+        assert_eq!(&raw.payload[18..22], &20u32.to_le_bytes());
+        assert_eq!(&raw.payload[22..26], &0u32.to_le_bytes());
     }
 
     #[test]

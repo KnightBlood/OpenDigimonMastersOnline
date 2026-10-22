@@ -326,6 +326,11 @@ pub mod game {
     // renders the "%04d - %02d : %03d" line through misc id 3334 and pops
     // event 42 (44996 0xD8FF70).
     pub const MASTER_CONN_COUNT_INFO: i16 = 9938;
+    // Item capsule-to-item {u4 count; per row {u1 slot; u2 code; u4 param;
+    // u4 next_count} while next_count nonzero}: each row inserts into the
+    // +0x9DC list through event 11, and a scene item 901107/901108 then
+    // triggers the 901109 cast (44996 0xDAD3E0).
+    pub const ITEM_CAPSULE_TO_ITEM: i16 = 3937;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
