@@ -1778,17 +1778,21 @@ pub struct TamerRelationsPacket {
 impl TamerRelationsPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::AVAILABLE_RELATIONS);
+        // Modern wire: receive-side parser (0xD9F3B0) reads
+        // {u2 friends; friends x {u1 presence-flag; str2; str2}-{u2 foes;
+        // foes x {str2; str2}}}; all strings are {u2 len; bytes} with the
+        // empty form still consuming the 2-byte prefix.
         writer.write_i16(clamp_i16_len(self.friends.len()));
         for friend in &self.friends {
             writer.write_u8(friend.connected as u8);
-            writer.write_string(non_empty_relation_name(friend));
-            write_optional_legacy_string(&mut writer, &friend.annotation);
+            write_optional_modern_string(&mut writer, non_empty_relation_name(friend));
+            write_optional_modern_string(&mut writer, &friend.annotation);
         }
 
         writer.write_i16(clamp_i16_len(self.foes.len()));
         for foe in &self.foes {
-            writer.write_string(non_empty_relation_name(foe));
-            write_optional_legacy_string(&mut writer, &foe.annotation);
+            write_optional_modern_string(&mut writer, non_empty_relation_name(foe));
+            write_optional_modern_string(&mut writer, &foe.annotation);
         }
 
         writer.finalize()
@@ -4150,11 +4154,11 @@ fn is_online_state(state: odmo_types::CharacterConnectionState) -> bool {
     )
 }
 
-fn write_optional_legacy_string(writer: &mut PacketWriter, value: &str) {
+fn write_optional_modern_string(writer: &mut PacketWriter, value: &str) {
     if value.is_empty() {
-        writer.write_u8(0);
+        writer.write_u16(0);
     } else {
-        writer.write_string(value);
+        writer.write_modern_utf8_string(value);
     }
 }
 
@@ -6342,6 +6346,18 @@ mod tests {
         .encode();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::AVAILABLE_RELATIONS);
+        // Modern strings: {u2 len; bytes}; an empty annotation still consumes
+        // its 2-byte length prefix.
+        assert_eq!(
+            raw.payload,
+            [
+                1, 0, // friends count
+                1, 3, 0, b'T', b'a', b'i', 0, 0, // flag + name + empty annotation
+                1, 0, // foes count
+                6, 0, b'E', b't', b'e', b'm', b'o', b'n', 7, 0,
+                b'N', b'e', b'm', b'e', b's', b'i', b's',
+            ]
+        );
     }
 
     #[test]
