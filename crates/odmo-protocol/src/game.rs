@@ -1507,6 +1507,37 @@ impl PinochiItemDeletePacket {
     }
 }
 
+/// One user row of the master user list.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterUserRow {
+    pub first: String,  // account-ish column
+    pub second: String, // character-ish column, unresolved
+}
+
+/// `Master::UserList` — opcode 9922: {u2 count; count x {s2; s2}}; each row
+/// appends a "{index:03} {first} {second}" line to `uList.txt` and pops it
+/// through event 42; the tail opens the file in notepad.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterUserListPacket {
+    pub users: Vec<MasterUserRow>,
+}
+
+impl MasterUserListPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.users.len() <= u16::MAX as usize,
+            "user rows overflow u2"
+        );
+        let mut writer = PacketWriter::new(game::MASTER_USER_LIST);
+        writer.write_u16(self.users.len() as u16);
+        for user in &self.users {
+            writer.write_modern_utf8_string(&user.first);
+            writer.write_modern_utf8_string(&user.second);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7841,6 +7872,29 @@ mod tests {
         assert_eq!(raw.payload[4..6], [1, 0]);
         assert_eq!(raw.payload[6..8], [1, 0]); // one row
         assert_eq!(raw.payload[10..12], [0, 0]); // empty second block
+    }
+
+    #[test]
+    fn master_user_list_writes_counted_name_rows() {
+        let packet = MasterUserListPacket {
+            users: vec![
+                MasterUserRow {
+                    first: "Ann".to_string(),
+                    second: "Bo".to_string(),
+                },
+                MasterUserRow {
+                    first: "Cy".to_string(),
+                    second: String::new(),
+                },
+            ],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_USER_LIST);
+        assert_eq!(raw.payload.len(), 2 + (2 + 3 + 2 + 2) + (2 + 2 + 2));
+        assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
+        assert_eq!(raw.payload[2..7], [3, 0, b'A', b'n', b'n']);
     }
 
     #[test]

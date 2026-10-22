@@ -242,6 +242,10 @@ pub mod game {
     // ev59/ev60, and the tail walks the special-event NPC list
     // (44996 0xDB4B80).
     pub const EVENT_PINOCHI_ITEM_DELETE: i16 = 3128;
+    // Master user list {u2 count; count x {s2; s2}}: rows render into
+    // uList.txt and ping ev42 per line; the tail opens the file in notepad
+    // (44996 0xD8FB80, raw asm).
+    pub const MASTER_USER_LIST: i16 = 9922;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
