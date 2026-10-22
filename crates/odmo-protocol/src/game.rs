@@ -1555,6 +1555,37 @@ impl MasterInitSkillStatPacket {
     }
 }
 
+/// `Master::UserInfo` — opcode 9920: {s2; s2; u4; u2; u1; r4 pair as i64;
+/// u4; u1}. The two strings and the numeric block feed the console info
+/// branches (each popping through event 42); the field semantics remain
+/// unresolved.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterUserInfoPacket {
+    pub first: String, // unresolved
+    pub second: String, // unresolved
+    pub first_flag: u32,  // unresolved
+    pub class: u16,       // unresolved
+    pub head: u8,         // unresolved
+    pub value: i64,       // unresolved
+    pub tail: u32,        // unresolved
+    pub trailing: u8,     // unresolved
+}
+
+impl MasterUserInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_USER_INFO);
+        writer.write_modern_utf8_string(&self.first);
+        writer.write_modern_utf8_string(&self.second);
+        writer.write_u32(self.first_flag);
+        writer.write_u16(self.class);
+        writer.write_u8(self.head);
+        writer.write_i64(self.value);
+        writer.write_u32(self.tail);
+        writer.write_u8(self.trailing);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8011,6 +8042,33 @@ mod tests {
         assert_eq!(&raw.payload[..4], &3u32.to_le_bytes());
         assert_eq!(raw.payload[4..9], [3, 0, b'A', b'n', b'n']);
         assert_eq!(raw.payload[9..11], [7, 0]); // "Greymon" length
+    }
+
+    #[test]
+    fn master_user_info_writes_strings_and_numeric_block() {
+        let packet = MasterUserInfoPacket {
+            first: "A".to_string(),
+            second: String::new(),
+            first_flag: 1,
+            class: 2,
+            head: 3,
+            value: 4,
+            tail: 5,
+            trailing: 6,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_USER_INFO);
+        assert_eq!(raw.payload.len(), 3 + 2 + 4 + 2 + 1 + 8 + 4 + 1);
+        assert_eq!(&raw.payload[0..2], &1u16.to_le_bytes());
+        assert_eq!(raw.payload[3..5], [0, 0]); // empty second string
+        assert_eq!(&raw.payload[5..9], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[9..11], &2u16.to_le_bytes());
+        assert_eq!(raw.payload[11], 3);
+        assert_eq!(&raw.payload[12..20], &4i64.to_le_bytes());
+        assert_eq!(&raw.payload[20..24], &5u32.to_le_bytes());
+        assert_eq!(raw.payload[24], 6);
     }
 
     #[test]

@@ -258,6 +258,10 @@ pub mod game {
     // with the "%s tn(%s) dn(%s)" template, then walks the per-slot stat
     // reset switch before the ev42 console pop (44996 0xD906C0, raw asm).
     pub const MASTER_INIT_SKILL_STAT: i16 = 9941;
+    // Master user info {s2; s2; u4; u2; u1; r4; r4(hi); u1}: numeric and
+    // string fields feed the console info branches, each popping through
+    // ev42 (44996 0xD8F3C0, raw asm; semantics unresolved).
+    pub const MASTER_USER_INFO: i16 = 9920;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
