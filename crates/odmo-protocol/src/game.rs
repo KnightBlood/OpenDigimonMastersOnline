@@ -2169,6 +2169,54 @@ impl DigimonDataChangePacket {
     }
 }
 
+/// One answer row of `Game::MacroQuestion` — opcode 1064: {u4 id; s2
+/// text}; mirrored by the nsMacroProtector 32-byte element object.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameMacroQuestionAnswer {
+    pub id: u32,
+    pub text: String, // modern utf8 string, u16 length prefix
+}
+
+/// `Game::MacroQuestion` — opcode 1064: {u2 a; u2 b; u1 c; u4 d; s2
+/// prompt; u2 count; count x {u4 id; s2 text}; u4 x4}. Assembles the
+/// image-question dialog (GS2C_RES_MACRO_IMAGE_QUESTION) with counted
+/// answer rows and pops event 357. The two leading u2, the u1, the u4 and
+/// the four trailing u4 stay on the dialog object unresolved.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameMacroQuestionPacket {
+    pub a: u16, // unresolved dialog field +0x8
+    pub b: u16, // unresolved dialog field +0xA
+    pub c: u8,  // unresolved dialog field +0xC
+    pub d: u32, // unresolved dialog field +0x10
+    pub prompt: String, // modern utf8 string, u16 length prefix
+    pub answers: Vec<GameMacroQuestionAnswer>,
+    pub tail: [u32; 4], // unresolved dialog fields +0x38..+0x44
+}
+
+impl GameMacroQuestionPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_MACRO_QUESTION);
+        writer.write_u16(self.a);
+        writer.write_u16(self.b);
+        writer.write_u8(self.c);
+        writer.write_u32(self.d);
+        writer.write_modern_utf8_string(&self.prompt);
+        assert!(
+            self.answers.len() <= u16::MAX as usize,
+            "macro-question answers overflow u2"
+        );
+        writer.write_u16(self.answers.len() as u16);
+        for answer in &self.answers {
+            writer.write_u32(answer.id);
+            writer.write_modern_utf8_string(&answer.text);
+        }
+        for value in &self.tail {
+            writer.write_u32(*value);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9094,6 +9142,42 @@ mod tests {
         assert_eq!(&raw.payload[39..67], &row(2));
         assert_eq!(raw.payload[67], 1);
         assert_eq!(&raw.payload[68..], &row(3));
+    }
+
+    #[test]
+    fn game_macro_question_writes_prompt_answers_and_tail() {
+        let packet = GameMacroQuestionPacket {
+            a: 1,
+            b: 2,
+            c: 3,
+            d: 4,
+            prompt: "who?".into(),
+            answers: vec![GameMacroQuestionAnswer {
+                id: 9,
+                text: "me".into(),
+            }],
+            tail: [5, 6, 7, 8],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_MACRO_QUESTION);
+        // 2+2+1+4 + prompt (2+4) + count 2 + answer (4 + 2+2) + tail 16
+        assert_eq!(raw.payload.len(), 9 + 6 + 2 + 8 + 16);
+        assert_eq!(&raw.payload[..2], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..4], &2u16.to_le_bytes());
+        assert_eq!(raw.payload[4], 3);
+        assert_eq!(&raw.payload[5..9], &4u32.to_le_bytes());
+        assert_eq!(&raw.payload[9..11], &4u16.to_le_bytes());
+        assert_eq!(&raw.payload[11..15], b"who?");
+        assert_eq!(&raw.payload[15..17], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[17..21], &9u32.to_le_bytes());
+        assert_eq!(&raw.payload[21..23], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[23..25], b"me");
+        assert_eq!(&raw.payload[25..29], &5u32.to_le_bytes());
+        assert_eq!(&raw.payload[29..33], &6u32.to_le_bytes());
+        assert_eq!(&raw.payload[33..37], &7u32.to_le_bytes());
+        assert_eq!(&raw.payload[37..41], &8u32.to_le_bytes());
     }
 
     #[test]

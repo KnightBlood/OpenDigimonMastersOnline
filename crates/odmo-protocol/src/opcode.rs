@@ -357,6 +357,12 @@ pub mod game {
     // payload {u1 count; count x 28-byte record; u1 count; count x
     // 28-byte record} through event 81 (44996 0xDB51C0).
     pub const DIGIMON_DATA_CHANGE: i16 = 3242;
+    // Game macro-question {u2 a; u2 b; u1 c; u4 d; s2 prompt; u2 count;
+    // count x {u4 id; s2 text}; u4; u4; u4; u4}: builds the
+    // GS2C_RES_MACRO_IMAGE_QUESTION dialog (each answer row is an
+    // nsMacroProtector::stAnswerForImageQuestion) and pops event 357
+    // (44996 0xDB61E0 + 0xDB9610).
+    pub const GAME_MACRO_QUESTION: i16 = 1064;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

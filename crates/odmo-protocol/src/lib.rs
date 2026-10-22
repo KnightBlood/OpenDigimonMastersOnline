@@ -65,6 +65,7 @@ pub use game::{
     ItemPartyCropMember, ItemPartyCropPacket,
     SkillAroundSkillAniPacket,
     DigimonDataChangeRecord14, DigimonDataChangePayload, DigimonDataChangePacket,
+    GameMacroQuestionAnswer, GameMacroQuestionPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
