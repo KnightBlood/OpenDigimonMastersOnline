@@ -5,6 +5,8 @@ use odmo_types::{
     ItemRecord, MobSummary, RelationEntry, SealListSnapshot, XaiSnapshot,
 };
 
+use std::collections::BTreeMap;
+
 use crate::{
     error::ProtocolError,
     opcode::game,
@@ -4447,6 +4449,30 @@ impl GameDiedAlreadyPacket {
     }
 }
 
+/// `SvrChannelInfo` notice — opcode 1713.
+/// Modern parser (0xDA0CD0) loops `n x {u1 offset; u1 byte}` pairs until an
+/// 0xFF offset terminator and assembles the 32-byte status buffer delivered
+/// with event 118. Slot byte meanings are unattributed; offsets beyond 31 are
+/// out of the client's slot range and rejected here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SvrChannelInfoPacket {
+    pub slots: BTreeMap<u8, u8>,
+}
+
+impl SvrChannelInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SVR_CHANNEL_INFO);
+        for (offset, value) in &self.slots {
+            if *offset < 32 {
+                writer.write_u8(*offset);
+                writer.write_u8(*value);
+            }
+        }
+        writer.write_u8(0xFF);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -5558,6 +5584,20 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::GAME_DIED_ALREADY);
         assert_eq!(raw.payload, [1, 0]);
+    }
+
+    #[test]
+    fn svr_channel_info_writes_sparse_pairs_then_sentinel() {
+        let packet = SvrChannelInfoPacket {
+            slots: BTreeMap::from([(1u8, 30u8), (9u8, 2u8), (60u8, 7u8)]),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SVR_CHANNEL_INFO);
+        // Offsets >= 32 fall outside the client's 32-byte slot buffer and are
+        // rejected by the writer.
+        assert_eq!(raw.payload, [1, 30, 9, 2, 0xFF]);
     }
 
     #[test]
