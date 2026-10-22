@@ -1306,6 +1306,27 @@ impl GuildDeletedTamerPacket {
     }
 }
 
+/// `GMHatchTry` — opcode 9966: six u4 success counters, five u4 fail
+/// counters, five u4 break counters and five u4 success-average floats; the
+/// client renders them into `_HatchTry.txt` and opens notepad.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct GmHatchTryPacket {
+    pub succ_count: [u32; 6],
+    pub fail_count: [u32; 5],
+    pub break_count: [u32; 5],
+    pub succ_average: [u32; 5], // raw float bits
+}
+
+impl GmHatchTryPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GM_HATCH_TRY);
+        for slot in self.succ_count.iter().chain(&self.fail_count).chain(&self.break_count).chain(&self.succ_average) {
+            writer.write_u32(*slot);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7508,6 +7529,23 @@ mod tests {
         let deleted_raw = PacketReader::from_frame(&deleted).expect("frame should decode");
         assert_eq!(deleted_raw.packet_type, game::GUILD_DELETED_TAMER);
         assert_eq!(deleted_raw.payload, [2, 0, b'B', b'o']);
+    }
+
+    #[test]
+    fn gm_hatch_try_writes_21_fixed_slots() {
+        let packet = GmHatchTryPacket {
+            succ_count: [1, 2, 3, 4, 5, 6],
+            fail_count: [7, 8, 9, 10, 11],
+            break_count: [12, 13, 14, 15, 16],
+            succ_average: [1_024, 2_048, 3_072, 4_096, 5_120],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GM_HATCH_TRY);
+        assert_eq!(raw.payload.len(), 21 * 4);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[80..84], &5_120u32.to_le_bytes());
     }
 
     #[test]

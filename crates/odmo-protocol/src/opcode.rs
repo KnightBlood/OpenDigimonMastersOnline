@@ -206,6 +206,10 @@ pub mod game {
     pub const GUILD_MEMBER_LEVEL_UP: i16 = 2122;
     pub const GUILD_CHANGE_TNAME: i16 = 2123;
     pub const GUILD_DELETED_TAMER: i16 = 2124;
+    // GM hatch stat table {r4 x6 succ; r4 x5 fail; r4 x5 break; r4 x5
+    // succ-average floats}: the client renders _HatchTry.txt and opens
+    // notepad (44996 0xD90DB0, raw asm).
+    pub const GM_HATCH_TRY: i16 = 9966;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
