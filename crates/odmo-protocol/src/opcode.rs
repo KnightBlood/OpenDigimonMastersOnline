@@ -245,6 +245,10 @@ pub mod game {
     // and friends as failure lines, popped through ev42
     // (44996 0xD8E9D0, raw asm).
     pub const MASTER_CHEAT_LEVEL: i16 = 9932;
+    // GM cooldown reset {r4 x102 fixed blob}: entry i adjusts the cooldown
+    // modifier of slot i+1 across the tamer and partner skill icon lists;
+    // the tail pings ev42 through a static text (44996 0xD91460, raw asm).
+    pub const MASTER_COOL_RESET: i16 = 9975;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

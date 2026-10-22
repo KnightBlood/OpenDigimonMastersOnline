@@ -1496,6 +1496,25 @@ impl MasterCheatLevelPacket {
     }
 }
 
+/// `Master::GMCoolReSet` — opcode 9975: a fixed blob of 102 u4 slot
+/// cooldown modifiers. Entry `i` adjusts the cooldown of slot `i + 1`
+/// across the tamer and partner skill icon lists; the client then pings
+/// event 42 with a static reset text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GmCoolResetPacket {
+    pub entries: [u32; 102], // slot cooldown modifiers, index 0 -> slot 1
+}
+
+impl GmCoolResetPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_COOL_RESET);
+        for entry in &self.entries {
+            writer.write_u32(*entry);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -7906,6 +7925,20 @@ mod tests {
         assert_eq!(raw.payload.len(), 4 + 2 + 3);
         assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
         assert_eq!(&raw.payload[4..], [3, 0, b'R', b'e', b'x']);
+    }
+
+    #[test]
+    fn gm_cool_reset_writes_102_fixed_slots() {
+        let mut entries = [0u32; 102];
+        entries[0] = 5;
+        entries[101] = 9;
+        let packet = GmCoolResetPacket { entries }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_COOL_RESET);
+        assert_eq!(raw.payload.len(), 102 * 4);
+        assert_eq!(&raw.payload[..4], &5u32.to_le_bytes());
+        assert_eq!(&raw.payload[404..408], &9u32.to_le_bytes());
     }
 
     #[test]
