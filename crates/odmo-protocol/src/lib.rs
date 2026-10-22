@@ -30,7 +30,7 @@ pub use game::{
     DungeonArenaNextStagePacket, EncyclopediaDeckBuffUsePacket, EncyclopediaLoadPacket,
     EncyclopediaReceiveRewardItemPacket, FriendConnectPacket, GameConnectionPacket, GameBattleOffPacket, GameBattleOnPacket,
     GameHpRatePacket, GameInitialInfoPacket, GameLevelUpPacket, GameHealUpPacket, GameRequest,
-    GameTingPacket, GameEmoticonPacket, GiftStorageRetrievePacket, GuildAuthorityUpdatePacket,
+    GameTingPacket, GameEmoticonPacket, GameStartMessagePacket, GameDiedAlreadyPacket, GiftStorageRetrievePacket, GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
     GuildInviteSuccessPacket, GuildMemberKickPacket, GuildMemberQuitPacket, GuildMessagePacket,

@@ -4410,6 +4410,43 @@ impl GameEmoticonPacket {
     }
 }
 
+/// `GameStartMessage` notice — opcode 1047.
+/// Modern parser (0xDACC50) reads `{u1 count; count x {u2 len; len x bytes}}`
+/// (strings through the standard reader 0xD07520, capped at 512 bytes) and
+/// delivers each to the message UI via event 42.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameStartMessagePacket {
+    pub messages: Vec<String>,
+}
+
+impl GameStartMessagePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_START_MESSAGE);
+        writer.write_u8(self.messages.len() as u8);
+        for message in &self.messages {
+            writer.write_modern_utf8_string(message);
+        }
+        writer.finalize()
+    }
+}
+
+/// `GameDiedAlready` notice — opcode 1052.
+/// Modern parser (0xDA4B30) advances past a single `{u2}` and clears the
+/// corpse-requeue party entry plus the digi-death fields; the u2 value itself
+/// is unattributed (skipped client-side).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameDiedAlreadyPacket {
+    pub reserved: u16, // unresolved (skipped client-side)
+}
+
+impl GameDiedAlreadyPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_DIED_ALREADY);
+        writer.write_u16(self.reserved);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -5493,6 +5530,34 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::GAME_EMOTICON);
         assert_eq!(raw.payload, [5, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0]);
+    }
+
+    #[test]
+    fn game_start_message_notice_writes_count_then_strings() {
+        let packet = GameStartMessagePacket {
+            messages: vec!["hi".into(), "ok".into()],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_START_MESSAGE);
+        assert_eq!(
+            raw.payload,
+            vec![
+                2,
+                2, 0, b'h', b'i',
+                2, 0, b'o', b'k',
+            ]
+        );
+    }
+
+    #[test]
+    fn game_died_already_notice_writes_single_u16() {
+        let packet = GameDiedAlreadyPacket { reserved: 1 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_DIED_ALREADY);
+        assert_eq!(raw.payload, [1, 0]);
     }
 
     #[test]

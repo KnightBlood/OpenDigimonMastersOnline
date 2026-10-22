@@ -66,6 +66,12 @@ pub mod game {
     // table 17 (CEmotionTable); flag 1 selects the aura variant
     // (44996 registry 1058/0xDA48A0).
     pub const GAME_EMOTICON: i16 = 1058;
+    // Start-message UI notice {u1 count; count x {u2 len; len x bytes}} feeding
+    // event 42 per message (44996 registry 1047/0xDACC50).
+    pub const GAME_START_MESSAGE: i16 = 1047;
+    // Death-state reset notice; client advances a single u2 and clears the
+    // corpse/party-requeue state (44996 registry 1052/0xDA4B30).
+    pub const GAME_DIED_ALREADY: i16 = 1052;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;
