@@ -194,6 +194,12 @@ pub mod game {
     // Skill point init {u1 count, count × 28-byte record} -> event 477
     // (44996 registry 3213/0xDA0DA0).
     pub const DIGIMON_SKILL_POINT_INIT: i16 = 3213;
+    // Incubator facilitation reply {u1 kind, u4 arg} -> event 412
+    // (44996 registry 3227/0xDB29C0).
+    pub const DIGIMON_FACILITATION: i16 = 3227;
+    // Incubator error notice; parser consumes a u4 and drops it
+    // (44996 registry 3228/0xD866F0). Field meaning unresolved.
+    pub const DIGIMON_INCUBATER_ERROR: i16 = 3228;
     pub const OTHER_TAMER_DETAIL_INFO_REQUEST: i16 = 16070;
     pub const OTHER_TAMER_DETAIL_INFO_RESPONSE: i16 = 16071;
     pub const ARENA_DAILY_POINTS: i16 = 4131;

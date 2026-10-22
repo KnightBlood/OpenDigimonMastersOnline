@@ -2424,6 +2424,38 @@ impl DigimonSkillPointInitPacket {
     }
 }
 
+/// `Facilitation` reply — opcode 3227, {u1 kind; u4 arg}, event 412.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DigimonFacilitationPacket {
+    pub kind: u8,
+    pub arg: u32,
+}
+
+impl DigimonFacilitationPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_FACILITATION);
+        writer.write_u8(self.kind);
+        writer.write_u32(self.arg);
+        writer.finalize()
+    }
+}
+
+/// `IncubaterError` notice — opcode 3228, {u4}; the modern parser consumes
+/// the dword and drops it, so the wire shape is exact but the field stays
+/// unattributed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct DigimonIncubaterErrorPacket {
+    pub code: u32,
+}
+
+impl DigimonIncubaterErrorPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_INCUBATER_ERROR);
+        writer.write_u32(self.code);
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -5563,6 +5595,22 @@ mod tests {
         assert_eq!(raw.payload[0], 3, "count byte");
         assert_eq!(raw.payload[1..].len(), 3 * 28, "record bytes");
         assert_eq!(&raw.payload[1..], &expect[..]);
+    }
+
+    #[test]
+    fn facilitation_encodes_u8_then_u32() {
+        let packet = DigimonFacilitationPacket { kind: 7, arg: 0xAABB_CCDD }.encode();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_FACILITATION);
+        assert_eq!(raw.payload, [7, 0xDD, 0xCC, 0xBB, 0xAA]);
+    }
+
+    #[test]
+    fn incubater_error_is_an_opaque_u4_notice() {
+        let packet = DigimonIncubaterErrorPacket { code: 0x11223344 }.encode();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_INCUBATER_ERROR);
+        assert_eq!(raw.payload, 0x11223344u32.to_le_bytes());
     }
 
     #[test]
