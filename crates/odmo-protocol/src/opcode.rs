@@ -393,6 +393,19 @@ pub mod game {
     // then a full stat recompute through the base-stats/evolution/digimon
     // tables and events 41, 167 and 476 (44996 registry 1075/0xD95DF0).
     pub const DIGIMON_INCHANT: i16 = 1075;
+    // Coat/vanity slot notices: 2201 all {u4 handler} (entity type 14 calls a
+    // vanity slot setter), 2202 savers {u4 value; u4 consumed}, 2203
+    // adventure {u4 value; u4 handler} with type 13 routing through the tamer
+    // vanity table and type 14 through the digimon one
+    // (44996 registry 2201/0xDAF300, 2202/0xDAF380, 2203/0xDAF3F0).
+    pub const ITEM_COAT_ALL: i16 = 2201;
+    pub const ITEM_COAT_SAVERS: i16 = 2202;
+    pub const ITEM_COAT_ADVENTURE: i16 = 2203;
+    // Slot-size updates: 3924 inventory {u2 size} -> ev458 + generic ev353
+    // node {103, size}; 3925 warehouse {u2 size} -> ev61 + ev353 node
+    // {104, size} (44996 registry 3924/0xDAE3A0, 3925/0xDAE280).
+    pub const ITEM_INVEN_SLOT_SIZE: i16 = 3924;
+    pub const ITEM_WAREHOUSE_SLOT_SIZE: i16 = 3925;
     // Enchant-info notice: {u4 digimon handler; u2 base; five u2 values} —
     // the five u2s insert into fixed positions 0, 1, 2, 4 and 6 of the
     // digimon's enchant-info list, then the client refreshes that digimon

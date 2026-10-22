@@ -2602,6 +2602,47 @@ impl DigimonInchantPacket {
     }
 }
 
+/// Coat notices — opcodes 2201, 2202 and 2203.
+/// Modern parsers: 2201 reads one u4 handler (entity type 14 triggers its
+/// vanity-slot setter), 2202 reads two u4s where only the first feeds the
+/// vanity table and 2203 reads {u4 value; u4 handler}, routing type 13
+/// through the tamer vanity table and type 14 through the digimon one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ItemCoatNoticePacket {
+    pub value: u32,   // routed into the vanity table (2202, 2203)
+    pub handler: u32, // unresolved (2201, 2203; 2202 consumes it silently)
+}
+
+impl ItemCoatNoticePacket {
+    pub fn encode_on(&self, opcode: i16) -> Vec<u8> {
+        let mut writer = PacketWriter::new(opcode);
+        if opcode == game::ITEM_COAT_ALL {
+            // 2201 carries only the handler; the other variants add the value.
+            writer.write_u32(self.handler);
+        } else {
+            writer.write_u32(self.value);
+            writer.write_u32(self.handler);
+        }
+        writer.finalize()
+    }
+}
+
+/// Slot-size update — opcode 3924 (inventory) and 3925 (warehouse): one u2
+/// that refreshes the client's bag or warehouse size and pings generic
+/// events carrying node flavor 103 (inventory) or 104 (warehouse).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ItemSlotSizePacket {
+    pub size: u16,
+}
+
+impl ItemSlotSizePacket {
+    pub fn encode_on(&self, opcode: i16) -> Vec<u8> {
+        let mut writer = PacketWriter::new(opcode);
+        writer.write_u16(self.size);
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6676,6 +6717,29 @@ mod tests {
         assert_eq!(&raw.payload[4..6], &[2, 0]);
         assert_eq!(&raw.payload[6..20], &(0u16..7).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
         assert_eq!(&raw.payload[20..34], &(10u16..17).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
+    }
+
+    #[test]
+    fn coat_and_slot_size_notices_fill_expected_bodies() {
+        let all = ItemCoatNoticePacket { value: 1, handler: 0x77 }.encode_on(game::ITEM_COAT_ALL);
+        let all_raw = PacketReader::from_frame(&all).expect("frame should decode");
+        assert_eq!(all_raw.packet_type, game::ITEM_COAT_ALL);
+        assert_eq!(all_raw.payload, 0x77u32.to_le_bytes());
+
+        let adventure = ItemCoatNoticePacket { value: 5, handler: 9 }.encode_on(game::ITEM_COAT_ADVENTURE);
+        let adventure_raw = PacketReader::from_frame(&adventure).expect("frame should decode");
+        assert_eq!(adventure_raw.packet_type, game::ITEM_COAT_ADVENTURE);
+        assert_eq!(adventure_raw.payload, [5, 0, 0, 0, 9, 0, 0, 0]);
+
+        let inventory = ItemSlotSizePacket { size: 64 }.encode_on(game::ITEM_INVEN_SLOT_SIZE);
+        let inventory_raw = PacketReader::from_frame(&inventory).expect("frame should decode");
+        assert_eq!(inventory_raw.packet_type, game::ITEM_INVEN_SLOT_SIZE);
+        assert_eq!(inventory_raw.payload, [64, 0]);
+
+        let warehouse = ItemSlotSizePacket { size: 128 }.encode_on(game::ITEM_WAREHOUSE_SLOT_SIZE);
+        let warehouse_raw = PacketReader::from_frame(&warehouse).expect("frame should decode");
+        assert_eq!(warehouse_raw.packet_type, game::ITEM_WAREHOUSE_SLOT_SIZE);
+        assert_eq!(warehouse_raw.payload, [128, 0]);
     }
 
     #[test]
