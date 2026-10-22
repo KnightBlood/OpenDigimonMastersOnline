@@ -3266,7 +3266,11 @@ impl InventorySortPacket {
     }
 }
 
-/// `ItemReturn` — opcode 3923.
+/// `ItemReturn` notice — opcode 3923.
+/// Modern read side consumes a fixed 12-byte body `{u4; i64}` and hands both
+/// fields to event 151; the legacy trailing i32 is off the wire. Field
+/// semantics stay the inventory-bit refund pair computed by the application
+/// flow; the transferred modern label for this op is a lead only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ItemReturnPacket {
     pub received_bits: i32,
@@ -3275,10 +3279,11 @@ pub struct ItemReturnPacket {
 
 impl ItemReturnPacket {
     pub fn encode(&self) -> Vec<u8> {
+        // Modern read side stops after {u4; i64}; trailing bytes would leave
+        // stale data in the client's packet ring buffer.
         let mut writer = PacketWriter::new(game::ITEM_RETURN);
         writer.write_i32(self.received_bits);
         writer.write_i64(self.previous_bits);
-        writer.write_i32(0);
         writer.finalize()
     }
 }
