@@ -382,6 +382,11 @@ pub mod game {
     // u4 skill_index; u4 expected} — direct digimon-table mutation plus an
     // empty event-477 ping (44996 registry 3245/0xDCA180).
     pub const SKILL_LIMIT_OPEN: i16 = 3245;
+    // Enchant-info notice: {u4 digimon handler; u2 base; five u2 values} —
+    // the five u2s insert into fixed positions 0, 1, 2, 4 and 6 of the
+    // digimon's enchant-info list, then the client refreshes that digimon
+    // (44996 registry 3214/0xDCDA00).
+    pub const DIGIMON_INCHANT_INFO: i16 = 3214;
     // Macro-result family: 1066 failure {u4} -> ev359, 1067 success with no
     // payload (local zeroed struct -> ev359), 1068 result {u4} -> ev360
     // (44996 registry 1066/0xDB63D0, 1067/0xDB6390, 1068/0xDB6170).

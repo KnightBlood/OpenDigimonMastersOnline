@@ -2521,6 +2521,31 @@ impl DigimonIncubaterSlotChangePacket {
     }
 }
 
+/// `InchantInfo` notice — opcode 3214.
+/// Modern parser (0xDCDA00) reads one u4 digimon handler, one u2 anchor value
+/// and five u2s that the client inserts into fixed positions 0, 1, 2, 4 and
+/// 6 of that digimon's enchant-info list; individual slot meanings stay
+/// unattributed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DigimonInchantInfoPacket {
+    pub handler: u32,     // resolved by the client digimon lookup
+    pub anchor: u16,      // read-side writes (value - 1) into the list cursor
+    pub entries: Vec<u16>, // five values at list positions 0, 1, 2, 4, 6
+}
+
+impl DigimonInchantInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert_eq!(self.entries.len(), 5, "enchant info carries five fixed slots");
+        let mut writer = PacketWriter::new(game::DIGIMON_INCHANT_INFO);
+        writer.write_u32(self.handler);
+        writer.write_u16(self.anchor);
+        for entry in &self.entries {
+            writer.write_u16(*entry);
+        }
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6538,6 +6563,27 @@ mod tests {
         let slot_raw = PacketReader::from_frame(&slot).expect("frame should decode");
         assert_eq!(slot_raw.packet_type, game::DIGIMON_INCUBATER_SLOT_CHANGE);
         assert_eq!(slot_raw.payload, [5, 0, 0, 0, 232, 3, 0, 0]);
+    }
+
+    #[test]
+    fn inchant_info_writes_handler_anchor_and_five_slots() {
+        let packet = DigimonInchantInfoPacket {
+            handler: 9,
+            anchor: 3,
+            entries: vec![1, 2, 3, 4, 5],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_INCHANT_INFO);
+        assert_eq!(
+            raw.payload,
+            [
+                9, 0, 0, 0, // handler
+                3, 0,       // anchor
+                1, 0, 2, 0, 3, 0, 4, 0, 5, 0, // five slots
+            ]
+        );
     }
 
     #[test]
