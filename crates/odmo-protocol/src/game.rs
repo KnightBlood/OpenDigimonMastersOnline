@@ -1061,6 +1061,67 @@ impl ItemSkillBatchPacket {
     }
 }
 
+/// `PinochiVote` — opcode 3127: {u2 count; count x {u2 slot; u4 value}};
+/// every entry decrements one 69-byte digimon skill-table row addr + 4
+/// (zeroing it on underflow) and the tail pops the 10019 window.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PinochiVotePacket {
+    pub entries: Vec<PinochiVoteRow>,
+}
+
+/// One vote row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PinochiVoteRow {
+    pub slot: u16,  // 69-byte skill-table index (<= 198)
+    pub value: u16, // decrement applied to the row counter
+}
+
+impl PinochiVotePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.entries.len() <= u16::MAX as usize,
+            "vote entries overflow u2"
+        );
+        let mut writer = PacketWriter::new(game::EVENT_PINOCHI_VOTE);
+        writer.write_u16(self.entries.len() as u16);
+        for row in &self.entries {
+            writer.write_u16(row.slot);
+            writer.write_u32(row.value as u32);
+        }
+        writer.finalize()
+    }
+}
+
+/// `StoreSummonUse` — opcode 3953: {u1 count; count x {u4; u4}} handed to
+/// event 466 after the client-side filler render.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct StoreSummonUsePacket {
+    pub items: Vec<StoreSummonRow>,
+}
+
+/// One summon-use row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StoreSummonRow {
+    pub first: u32,  // unresolved
+    pub second: u32, // unresolved
+}
+
+impl StoreSummonUsePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.items.len() <= u8::MAX as usize,
+            "summon rows overflow u1"
+        );
+        let mut writer = PacketWriter::new(game::ITEM_STORE_SUMMON_USE);
+        writer.write_u8(self.items.len() as u8);
+        for row in &self.items {
+            writer.write_u32(row.first);
+            writer.write_u32(row.second);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7145,6 +7206,25 @@ mod tests {
         let remove_raw = PacketReader::from_frame(&remove).expect("frame should decode");
         assert_eq!(remove_raw.packet_type, game::TAMER_ITEM_SKILL_REMOVE);
         assert_eq!(remove_raw.payload, [1, 30, 0, 0, 0]);
+    }
+
+    #[test]
+    fn pinochi_vote_and_store_summon_fill_expected_bodies() {
+        let vote = PinochiVotePacket {
+            entries: vec![PinochiVoteRow { slot: 3, value: 5 }],
+        }
+        .encode();
+        let vote_raw = PacketReader::from_frame(&vote).expect("frame should decode");
+        assert_eq!(vote_raw.packet_type, game::EVENT_PINOCHI_VOTE);
+        assert_eq!(vote_raw.payload, [1, 0, 3, 0, 5, 0, 0, 0]);
+
+        let summon = StoreSummonUsePacket {
+            items: vec![StoreSummonRow { first: 1, second: 2 }],
+        }
+        .encode();
+        let summon_raw = PacketReader::from_frame(&summon).expect("frame should decode");
+        assert_eq!(summon_raw.packet_type, game::ITEM_STORE_SUMMON_USE);
+        assert_eq!(summon_raw.payload, [1, 1, 0, 0, 0, 2, 0, 0, 0]);
     }
 
     #[test]

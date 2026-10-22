@@ -168,6 +168,14 @@ pub mod game {
     pub const TAMER_ITEM_SKILL_APPLY: i16 = 1330;
     pub const TAMER_ITEM_SKILL_EXPIRE: i16 = 1331;
     pub const TAMER_ITEM_SKILL_REMOVE: i16 = 1332;
+    // Pinochi vote {u2 count; count x {u2 slot; r4 value}}: each entry
+    // decrements a digimon skill-table row (+4, zeroing the 69-byte row on
+    // underflow) and ends with the 10019 event window
+    // (44996 0xDB4A70).
+    pub const EVENT_PINOCHI_VOTE: i16 = 3127;
+    // Store-summon use {u1 count; count x {r4; r4}} -> ev466
+    // (44996 0xD9BC10).
+    pub const ITEM_STORE_SUMMON_USE: i16 = 3953;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
