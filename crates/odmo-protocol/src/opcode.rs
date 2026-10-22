@@ -132,6 +132,21 @@ pub mod game {
     // sell result {i64 money; u1 count; count x {u1 kind; u4 serial; u2
     // stack rows}} pinging ev89 (44996 receive 0xDA3E50).
     pub const NPC_SELL: i16 = 3916;
+    // Event notices: 3135 hot-time {r4 value} -> ev454 {3135, value};
+    // 3139 item term {u2} -> ev527 {3139, value}
+    // (0xD089C0 / 0xD09000).
+    pub const EVENT_HOT_TIME: i16 = 3135;
+    pub const EVENT_ITEM_TERM: i16 = 3139;
+    // Gotcha {r4 value} -> ev492 {value} (44996 0xDB0D10).
+    pub const ITEM_GOTCHA: i16 = 3959;
+    // Guild member join {r4 value} -> ev261 {value} (44996 0xD95560).
+    pub const GUILD_INC_MEMBER: i16 = 2130;
+    // Tamer option {r4 target handler; r4 value}; the client looks the
+    // target up and applies the option through it (44996 0xDA3D00).
+    pub const TAMER_OPTION: i16 = 1313;
+    // Skill-chip result {r4 handler; r4 skill_id}: the CSkillTable row keyed
+    // by skill_id with kind 1 or 47 pops the buff message (44996 0xDC8B40).
+    pub const SKILL_RESULT_CHIP: i16 = 1122;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

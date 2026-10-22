@@ -42,6 +42,8 @@ pub use game::{
     BattleTagFailurePacket, BattleTagSuccessPacket, CareSlotSizePacket,
     ItemCoatNoticePacket, ItemSlotSizePacket, ItemUseFailurePacket, PortableItemFailPacket,
     ItemCropMoneyPacket, ChangeLimitedAttributePacket, NpcSellRow,
+    HotTimeEventPacket, ItemTermPacket, SingleValueNoticePacket, TamerOptionPacket,
+    SkillResultChipPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

@@ -878,6 +878,85 @@ impl NpcSellResultPacket {
     }
 }
 
+/// `HotTimeEvent` — opcode 3135: one u4 value handed to event 454 together
+/// with the op marker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HotTimeEventPacket {
+    pub value: u32, // unresolved
+}
+
+impl HotTimeEventPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::EVENT_HOT_TIME);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
+/// `ItemTerm` — opcode 3139: one u2 term handed to event 527 together with
+/// the op marker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ItemTermPacket {
+    pub term: u16, // unresolved
+}
+
+impl ItemTermPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::EVENT_ITEM_TERM);
+        writer.write_u16(self.term);
+        writer.finalize()
+    }
+}
+
+/// `GotchaItem` — opcode 3959 and `IncMember` — opcode 2130: a single u4
+/// forwarded to event 492 / event 261 respectively.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SingleValueNoticePacket {
+    pub value: u32, // unresolved
+}
+
+impl SingleValueNoticePacket {
+    pub fn encode_on(&self, opcode: i16) -> Vec<u8> {
+        let mut writer = PacketWriter::new(opcode);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
+/// `Option` — opcode 1313: {u4 target; u4 value}; the client resolves the
+/// target handler and applies the option through it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TamerOptionPacket {
+    pub target: u32, // handler for sub_DDA4E0
+    pub value: u32,  // unresolved
+}
+
+impl TamerOptionPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::TAMER_OPTION);
+        writer.write_u32(self.target);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
+/// `ResultSkillChip` — opcode 1122: {u4 handler; u4 skill_id}; a skill-row
+/// kind of 1 or 47 pops the buff feedback message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillResultChipPacket {
+    pub handler: u32,  // entity carrying the chip
+    pub skill_id: u32, // keyed into CSkillTable
+}
+
+impl SkillResultChipPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_RESULT_CHIP);
+        writer.write_u32(self.handler);
+        writer.write_u32(self.skill_id);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -6879,6 +6958,39 @@ mod tests {
         let limited_raw = PacketReader::from_frame(&limited).expect("frame should decode");
         assert_eq!(limited_raw.packet_type, game::ITEM_CHANGE_LIMITED_ATTRIBUTE);
         assert_eq!(limited_raw.payload, [9, 0, 1]);
+    }
+
+    #[test]
+    fn event_guild_tamer_and_chip_notices_fill_expected_bodies() {
+        let hot_time = HotTimeEventPacket { value: 11 }.encode();
+        let hot_time_raw = PacketReader::from_frame(&hot_time).expect("frame should decode");
+        assert_eq!(hot_time_raw.packet_type, game::EVENT_HOT_TIME);
+        assert_eq!(hot_time_raw.payload, 11u32.to_le_bytes());
+
+        let item_term = ItemTermPacket { term: 22 }.encode();
+        let item_term_raw = PacketReader::from_frame(&item_term).expect("frame should decode");
+        assert_eq!(item_term_raw.packet_type, game::EVENT_ITEM_TERM);
+        assert_eq!(item_term_raw.payload, 22u16.to_le_bytes());
+
+        let gotcha = SingleValueNoticePacket { value: 33 }.encode_on(game::ITEM_GOTCHA);
+        let gotcha_raw = PacketReader::from_frame(&gotcha).expect("frame should decode");
+        assert_eq!(gotcha_raw.packet_type, game::ITEM_GOTCHA);
+        assert_eq!(gotcha_raw.payload, 33u32.to_le_bytes());
+
+        let inc_member = SingleValueNoticePacket { value: 44 }.encode_on(game::GUILD_INC_MEMBER);
+        let inc_member_raw = PacketReader::from_frame(&inc_member).expect("frame should decode");
+        assert_eq!(inc_member_raw.packet_type, game::GUILD_INC_MEMBER);
+        assert_eq!(inc_member_raw.payload, 44u32.to_le_bytes());
+
+        let option = TamerOptionPacket { target: 5, value: 6 }.encode();
+        let option_raw = PacketReader::from_frame(&option).expect("frame should decode");
+        assert_eq!(option_raw.packet_type, game::TAMER_OPTION);
+        assert_eq!(option_raw.payload, [5, 0, 0, 0, 6, 0, 0, 0]);
+
+        let chip = SkillResultChipPacket { handler: 7, skill_id: 8 }.encode();
+        let chip_raw = PacketReader::from_frame(&chip).expect("frame should decode");
+        assert_eq!(chip_raw.packet_type, game::SKILL_RESULT_CHIP);
+        assert_eq!(chip_raw.payload, [7, 0, 0, 0, 8, 0, 0, 0]);
     }
 
     #[test]
