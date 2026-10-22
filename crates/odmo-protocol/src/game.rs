@@ -2546,6 +2546,34 @@ impl DigimonInchantInfoPacket {
     }
 }
 
+/// `DecreaseDigimonInchant` notice — opcode 1083.
+/// Modern parser (0xD96B90) applies everything to the local digimon: it reads
+/// one u2 anchor (stored client-side as value - 1) and fourteen more u2s in
+/// two sequential runs of seven; the client then pairs run one with run two
+/// into seven info-list entries, decrements one 69-byte skill-table row
+/// (zeroing it on underflow) and pings event 718 with the digimon plus an
+/// empty event-476 alongside the tactics-fail feedback. Element meanings
+/// stay unattributed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DigimonDecreaseInchantPacket {
+    pub anchor: u16,       // stored as (value - 1)
+    pub first_run: Vec<u16>,  // seven u2 values
+    pub second_run: Vec<u16>, // seven u2 values paired with first_run
+}
+
+impl DigimonDecreaseInchantPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert_eq!(self.first_run.len(), 7, "first run carries seven u2 slots");
+        assert_eq!(self.second_run.len(), 7, "second run carries seven u2 slots");
+        let mut writer = PacketWriter::new(game::DIGIMON_DECREASE_INCHANT);
+        writer.write_u16(self.anchor);
+        for value in self.first_run.iter().chain(&self.second_run) {
+            writer.write_u16(*value);
+        }
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6584,6 +6612,23 @@ mod tests {
                 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, // five slots
             ]
         );
+    }
+
+    #[test]
+    fn decrease_inchant_writes_anchor_and_two_seven_value_runs() {
+        let packet = DigimonDecreaseInchantPacket {
+            anchor: 4,
+            first_run: (0..7).collect(),
+            second_run: (10..17).collect(),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_DECREASE_INCHANT);
+        assert_eq!(raw.payload.len(), 30);
+        assert_eq!(&raw.payload[..2], &[4, 0]);
+        assert_eq!(&raw.payload[2..16], &(0u16..7).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
+        assert_eq!(&raw.payload[16..30], &(10u16..17).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
     }
 
     #[test]

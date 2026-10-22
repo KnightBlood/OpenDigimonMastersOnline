@@ -382,6 +382,12 @@ pub mod game {
     // u4 skill_index; u4 expected} — direct digimon-table mutation plus an
     // empty event-477 ping (44996 registry 3245/0xDCA180).
     pub const SKILL_LIMIT_OPEN: i16 = 3245;
+    // Enchant/tactics decrease notice applied to the local digimon:
+    // {u2 anchor (client stores value - 1); u2 x14 in two runs of seven};
+    // the loop pairs run one with run two into seven info-list entries,
+    // decrements a 69-byte skill-table row and pings event 718 plus an
+    // empty event-476 (44996 registry 1083/0xD96B90).
+    pub const DIGIMON_DECREASE_INCHANT: i16 = 1083;
     // Enchant-info notice: {u4 digimon handler; u2 base; five u2 values} —
     // the five u2s insert into fixed positions 0, 1, 2, 4 and 6 of the
     // digimon's enchant-info list, then the client refreshes that digimon
