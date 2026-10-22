@@ -1327,6 +1327,25 @@ impl GmHatchTryPacket {
     }
 }
 
+/// `PinochiGetInfo` — opcode 3126: eleven fixed u4 values parked into the
+/// container global slots (+0x48 first, then +0x60..+0x70, then +0x4C..+0x5C).
+/// The client refreshes the render list through the 0x3138 slots; when the
+/// container lacks the window it falls back to an event-42 lookup text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PinochiGetInfoPacket {
+    pub values: [u32; 11], // container slot parking, wire order preserved
+}
+
+impl PinochiGetInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::EVENT_PINOCHI_GET_INFO);
+        for value in &self.values {
+            writer.write_u32(*value);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7546,6 +7565,20 @@ mod tests {
         assert_eq!(raw.payload.len(), 21 * 4);
         assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
         assert_eq!(&raw.payload[80..84], &5_120u32.to_le_bytes());
+    }
+
+    #[test]
+    fn pinochi_get_info_writes_eleven_fixed_slots() {
+        let values: Vec<u32> = (0..11).map(|index| 100 + index as u32).collect();
+        let mut values_array = [0u32; 11];
+        values_array.copy_from_slice(&values);
+        let packet = PinochiGetInfoPacket { values: values_array }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::EVENT_PINOCHI_GET_INFO);
+        assert_eq!(raw.payload.len(), 44);
+        assert_eq!(&raw.payload[..4], &100u32.to_le_bytes());
+        assert_eq!(&raw.payload[40..44], &110u32.to_le_bytes());
     }
 
     #[test]

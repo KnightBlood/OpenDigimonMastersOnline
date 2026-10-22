@@ -210,6 +210,11 @@ pub mod game {
     // succ-average floats}: the client renders _HatchTry.txt and opens
     // notepad (44996 0xD90DB0, raw asm).
     pub const GM_HATCH_TRY: i16 = 9966;
+    // Pinochi get-info {r4 x11}: one value lands at container +0x48, five at
+    // +0x60..+0x70 and five at +0x4C..+0x5C; the render list is refreshed
+    // through the 0x3138 slots and the fallback path pings ev42
+    // (44996 0xDB47E0, raw asm).
+    pub const EVENT_PINOCHI_GET_INFO: i16 = 3126;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
