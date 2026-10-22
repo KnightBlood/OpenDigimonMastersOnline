@@ -1477,6 +1477,25 @@ impl MasterInsertItemToShopPacket {
     }
 }
 
+/// `Master::CheatLevel` — opcode 9932: {u4 result; s2 name}. Result 2
+/// resolves misc table id 24 (CHAT_CHEAT_LEVEL_CHANGED); other results
+/// resolve failure ids such as 23 (CHAT_RESULT_VALUE_ERROR) and pop through
+/// event 42 with the target name.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterCheatLevelPacket {
+    pub result: u32,
+    pub name: String,
+}
+
+impl MasterCheatLevelPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_CHEAT_LEVEL);
+        writer.write_u32(self.result);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -7872,6 +7891,21 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MASTER_INSERT_ITEM_TO_SHOP);
         assert_eq!(raw.payload, [2, 0]);
+    }
+
+    #[test]
+    fn master_cheat_level_writes_result_and_name() {
+        let packet = MasterCheatLevelPacket {
+            result: 2,
+            name: "Rex".to_string(),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_CHEAT_LEVEL);
+        assert_eq!(raw.payload.len(), 4 + 2 + 3);
+        assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..], [3, 0, b'R', b'e', b'x']);
     }
 
     #[test]

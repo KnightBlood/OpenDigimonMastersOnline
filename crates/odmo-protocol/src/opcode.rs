@@ -240,6 +240,11 @@ pub mod game {
     // to cash shop), 23 (item code missing), 29 (store full) and more,
     // popped as an ev42 console line (44996 0xD8EDF0, raw asm).
     pub const MASTER_INSERT_ITEM_TO_SHOP: i16 = 9944;
+    // Master cheat-level result {u4 result; s2 name}: result 2 resolves
+    // misc id 24 (CHAT_CHEAT_LEVEL_CHANGED), other values resolve ids 23
+    // and friends as failure lines, popped through ev42
+    // (44996 0xD8E9D0, raw asm).
+    pub const MASTER_CHEAT_LEVEL: i16 = 9932;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
