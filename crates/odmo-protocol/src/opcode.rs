@@ -278,6 +278,11 @@ pub mod game {
     // effect entry whose entity carries the id and respawns its tail
     // particle (44996 0xDCA020, raw asm).
     pub const SKILL_RANGE_PERSIST_END: i16 = 1124;
+    // Skill chip cooldown {u4 tamer_slot; u4 partner_slot}: the tamer skill
+    // icon list is scanned for the first slot and the partner list for the
+    // second, both cooldowns re-anchored from the skill-table row
+    // (44996 0xDC88A0, raw asm).
+    pub const SKILL_CHIP_COOL_TIME: i16 = 1121;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

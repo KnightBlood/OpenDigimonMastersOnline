@@ -1653,6 +1653,25 @@ impl SkillRangePersistEndPacket {
     }
 }
 
+/// `Skill::ChipCoolTime` — opcode 1121: {u4 tamer_slot; u4 partner_slot}.
+/// The tamer skill icon list is scanned for the first slot and the partner
+/// skill list for the second, and each cooldown is re-anchored from its
+/// skill-table row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillChipCoolTimePacket {
+    pub tamer_slot: u32,
+    pub partner_slot: u32,
+}
+
+impl SkillChipCoolTimePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_CHIP_COOL_TIME);
+        writer.write_u32(self.tamer_slot);
+        writer.write_u32(self.partner_slot);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8175,6 +8194,21 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::SKILL_RANGE_PERSIST_END);
         assert_eq!(raw.payload, 7u32.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_chip_cool_time_writes_two_slots() {
+        let packet = SkillChipCoolTimePacket {
+            tamer_slot: 11,
+            partner_slot: 22,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_CHIP_COOL_TIME);
+        assert_eq!(raw.payload.len(), 8);
+        assert_eq!(&raw.payload[..4], &11u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..], &22u32.to_le_bytes());
     }
 
     #[test]

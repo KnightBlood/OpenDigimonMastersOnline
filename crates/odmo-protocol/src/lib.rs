@@ -55,7 +55,7 @@ pub use game::{
     MasterInsertItemToShopPacket, MasterUserListPacket, MasterUserRow,
     MasterCheatLevelPacket, GmCoolResetPacket, MasterChatBanUserPacket,
     MasterInitSkillStatPacket, MasterUserInfoPacket, MasterMachineRunPacket,
-    MasterRankItemRunPacket, SkillRangePersistEndPacket,
+    MasterRankItemRunPacket, SkillRangePersistEndPacket, SkillChipCoolTimePacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
