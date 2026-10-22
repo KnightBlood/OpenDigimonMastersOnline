@@ -232,6 +232,10 @@ pub mod game {
     // (CHAT_SECOND_PASSWORD_RESET_SUCCESS) and 1 id 17 (CHAT_NOT_EXIST_ID),
     // both popped as an ev42 console line (44996 0xD8F190, raw asm).
     pub const MASTER_INIT_2ND_PASS: i16 = 9945;
+    // Master kill-stat dump {u4 count; count x i64}: per-entry money totals
+    // are rendered into _KillMon.txt and popped open in notepad
+    // (44996 0xD90B50, raw asm).
+    pub const MASTER_LIE_KILL_MONSTER: i16 = 9958;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

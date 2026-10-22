@@ -1438,6 +1438,29 @@ impl MasterInit2ndPassPacket {
     }
 }
 
+/// `Master::LieKillMonster` — opcode 9958: {u4 count; count x i64 money};
+/// the client dumps the per-entry kill money into `_KillMon.txt` and opens
+/// it in notepad.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterLieKillMonsterPacket {
+    pub entries: Vec<u64>, // kill money per entry
+}
+
+impl MasterLieKillMonsterPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.entries.len() <= u32::MAX as usize,
+            "kill entries overflow u4"
+        );
+        let mut writer = PacketWriter::new(game::MASTER_LIE_KILL_MONSTER);
+        writer.write_u32(self.entries.len() as u32);
+        for entry in &self.entries {
+            writer.write_i64(*entry as i64);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7735,6 +7758,18 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MASTER_INIT_2ND_PASS);
         assert_eq!(raw.payload, [1, 0]);
+    }
+
+    #[test]
+    fn master_lie_kill_monster_writes_counted_money_rows() {
+        let packet = MasterLieKillMonsterPacket { entries: vec![7, 11] }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_LIE_KILL_MONSTER);
+        assert_eq!(raw.payload.len(), 4 + 16);
+        assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..12], &7i64.to_le_bytes());
+        assert_eq!(&raw.payload[12..20], &11i64.to_le_bytes());
     }
 
     #[test]
