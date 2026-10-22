@@ -60,6 +60,12 @@ pub mod game {
     // Partner stat-restore notice {u4 handler_id; u4 x3} hitting three
     // sequential status setters (44996 registry 1023/0xDA6D70).
     pub const GAME_HEAL_UP: i16 = 1023;
+    // Ting visual notice {u4 handler_id} (44996 registry 1053/0xDD0780).
+    pub const GAME_TING: i16 = 1053;
+    // Emoticon notice {u4 handler_id; u4 emotion_id; u4 flag} resolved through
+    // table 17 (CEmotionTable); flag 1 selects the aura variant
+    // (44996 registry 1058/0xDA48A0).
+    pub const GAME_EMOTICON: i16 = 1058;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;

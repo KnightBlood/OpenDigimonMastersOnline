@@ -4372,6 +4372,44 @@ impl GameHealUpPacket {
     }
 }
 
+/// `GameTing` notice — opcode 1053.
+/// Modern parser (0xDD0780) reads `{u4 handler_id}`, resolves the entity and
+/// plays the surprise-mark effect plus the "SystemEnemyWar" entity chat line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameTingPacket {
+    pub handler_id: u32,
+}
+
+impl GameTingPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_TING);
+        writer.write_u32(self.handler_id);
+        writer.finalize()
+    }
+}
+
+/// `GameEmoticon` notice — opcode 1058.
+/// Modern parser (0xDA48A0) reads `{u4 handler_id; u4 emotion_id; u4 flag}`,
+/// resolves `emotion_id` through table 17 (CEmotionTable) and applies it to the
+/// entity; flag == 1 also plays the aura variant. Entities of type 13 raise
+/// event 669 afterwards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameEmoticonPacket {
+    pub handler_id: u32,
+    pub emotion_id: u32,
+    pub flag: u32,
+}
+
+impl GameEmoticonPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_EMOTICON);
+        writer.write_u32(self.handler_id);
+        writer.write_u32(self.emotion_id);
+        writer.write_u32(self.flag);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -5432,6 +5470,29 @@ mod tests {
             raw.payload,
             [0x10, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn game_ting_notice_writes_single_u32_handler() {
+        let packet = GameTingPacket { handler_id: 0x77 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_TING);
+        assert_eq!(raw.payload, [0x77, 0, 0, 0]);
+    }
+
+    #[test]
+    fn game_emoticon_notice_writes_u32_triple() {
+        let packet = GameEmoticonPacket {
+            handler_id: 5,
+            emotion_id: 8,
+            flag: 1,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_EMOTICON);
+        assert_eq!(raw.payload, [5, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0]);
     }
 
     #[test]
