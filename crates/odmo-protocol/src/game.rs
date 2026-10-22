@@ -3886,6 +3886,45 @@ impl ItemScanNoticePacket {
     }
 }
 
+/// `AdvertBossCount` notice — opcode 1059.
+/// Modern parser (0xDAF960) reads three u4 fields, then either resolves the
+/// existing advert-boss entry or creates one; all three field meanings stay
+/// unattributed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AdvertBossCountNoticePacket {
+    pub first: u32,   // unresolved
+    pub second: u32,  // unresolved
+    pub third: u32,   // unresolved
+}
+
+impl AdvertBossCountNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ADVERT_BOSS_COUNT);
+        writer.write_u32(self.first);
+        writer.write_u32(self.second);
+        writer.write_u32(self.third);
+        writer.finalize()
+    }
+}
+
+/// `AdvertBossDie` notice — opcode 1061.
+/// Modern parser (0xDAF8E0) reads two u4 fields and hands the first to the
+/// removal dispatch; the second gates whether the dispatch runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AdvertBossDieNoticePacket {
+    pub first: u32,   // unresolved
+    pub second: u32,  // unresolved
+}
+
+impl AdvertBossDieNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ADVERT_BOSS_DIE);
+        writer.write_u32(self.first);
+        writer.write_u32(self.second);
+        writer.finalize()
+    }
+}
+
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
 /// Used by the per-rank authority change packets which all share the same payload shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5737,6 +5776,32 @@ mod tests {
                 2, 0, // count
                 11, 0, 12, 0, // rows
             ]
+        );
+    }
+
+    #[test]
+    fn advert_boss_notices_write_fixed_u32_fields() {
+        let count = AdvertBossCountNoticePacket {
+            first: 1,
+            second: 2,
+            third: 3,
+        }
+        .encode();
+
+        let count_raw = PacketReader::from_frame(&count).expect("frame should decode");
+        assert_eq!(count_raw.packet_type, game::ADVERT_BOSS_COUNT);
+        assert_eq!(count_raw.payload, [1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]);
+
+        let die = AdvertBossDieNoticePacket {
+            first: 0x55,
+            second: 0,
+        }
+        .encode();
+        let die_raw = PacketReader::from_frame(&die).expect("frame should decode");
+        assert_eq!(die_raw.packet_type, game::ADVERT_BOSS_DIE);
+        assert_eq!(
+            die_raw.payload,
+            [0x55, 0, 0, 0, 0, 0, 0, 0]
         );
     }
 

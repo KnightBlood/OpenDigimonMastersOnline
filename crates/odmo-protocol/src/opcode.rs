@@ -72,6 +72,11 @@ pub mod game {
     // Death-state reset notice; client advances a single u2 and clears the
     // corpse/party-requeue state (44996 registry 1052/0xDA4B30).
     pub const GAME_DIED_ALREADY: i16 = 1052;
+    // Advert-boss notices: 1059 count/upsert {u4; u4; u4} (lookup-then-create
+    // dispatch, 0xDAF960), 1061 die {u4; u4} (direct-removal dispatch
+    // 0xDAF8E0). The create-side parser 1060 stays deferred (278 lines asm).
+    pub const ADVERT_BOSS_COUNT: i16 = 1059;
+    pub const ADVERT_BOSS_DIE: i16 = 1061;
     // Sparse channel-status map fill: n x {u1 offset; u1 byte}, terminated by
     // an 0xFF offset; builds the 32-byte slot buffer for event 118
     // (44996 registry 1713/0xDA0CD0).
