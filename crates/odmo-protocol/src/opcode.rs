@@ -368,5 +368,15 @@ pub mod game {
     // u4 skill_index; u4 expected} — direct digimon-table mutation plus an
     // empty event-477 ping (44996 registry 3245/0xDCA180).
     pub const SKILL_LIMIT_OPEN: i16 = 3245;
+    // Macro-result family: 1066 failure {u4} -> ev359, 1067 success with no
+    // payload (local zeroed struct -> ev359), 1068 result {u4} -> ev360
+    // (44996 registry 1066/0xDB63D0, 1067/0xDB6390, 1068/0xDB6170).
+    pub const MACRO_FAILURE: i16 = 1066;
+    pub const MACRO_SUCCESS: i16 = 1067;
+    pub const MACRO_RESULT: i16 = 1068;
+    // Message-all failure and incubator error share parser 0xD866F0: one u4
+    // is consumed and dropped, no dispatch.
+    pub const MSG_ALL_FAILURE: i16 = 1071;
+    pub const INCUBATER_ERROR: i16 = 3228;
     pub const FRIENDLY_INFO: i16 = 3129;
 }

@@ -3953,6 +3953,48 @@ impl DigimonSkillLimitOpenPacket {
     }
 }
 
+/// `MacroFailure` notice — opcode 1066: one u4 handed to event 359.
+/// `MacroResult` notice — opcode 1068: one u4 handed to event 360.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MacroResultNoticePacket {
+    pub result: u32, // unresolved
+}
+
+impl MacroResultNoticePacket {
+    /// Encode the failure variant (1066) or the result variant (1068).
+    pub fn encode_on(&self, opcode: i16) -> Vec<u8> {
+        let mut writer = PacketWriter::new(opcode);
+        writer.write_u32(self.result);
+        writer.finalize()
+    }
+}
+
+/// `MacroSuccess` notice — opcode 1067: empty payload; the client dispatches
+/// event 359 with a locally zeroed struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MacroSuccessNoticePacket;
+
+impl MacroSuccessNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::MACRO_SUCCESS).finalize()
+    }
+}
+
+/// Dropped-slot notice — opcodes 1071 and 3228 (shared parser 0xD866F0):
+/// the client consumes one u4 and discards it without dispatching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DroppedSlotNoticePacket {
+    pub reserved: u32, // unresolved (read and dropped)
+}
+
+impl DroppedSlotNoticePacket {
+    pub fn encode_on(&self, opcode: i16) -> Vec<u8> {
+        let mut writer = PacketWriter::new(opcode);
+        writer.write_u32(self.reserved);
+        writer.finalize()
+    }
+}
+
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
 /// Used by the per-rank authority change packets which all share the same payload shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5850,6 +5892,29 @@ mod tests {
         assert_eq!(&raw.payload[4..8], &[3, 0, 0, 0]);
         assert_eq!(&raw.payload[8..36], &(0..28).collect::<Vec<u8>>()[..]);
         assert_eq!(&raw.payload[36..44], &[7, 0, 0, 0, 1, 0, 0, 0]);
+    }
+
+    #[test]
+    fn macro_family_and_dropped_slot_write_fixed_bodies() {
+        let failure = MacroResultNoticePacket { result: 5 }.encode_on(game::MACRO_FAILURE);
+        let failure_raw = PacketReader::from_frame(&failure).expect("frame should decode");
+        assert_eq!(failure_raw.packet_type, game::MACRO_FAILURE);
+        assert_eq!(failure_raw.payload, [5, 0, 0, 0]);
+
+        let result = MacroResultNoticePacket { result: 9 }.encode_on(game::MACRO_RESULT);
+        let result_raw = PacketReader::from_frame(&result).expect("frame should decode");
+        assert_eq!(result_raw.packet_type, game::MACRO_RESULT);
+        assert_eq!(result_raw.payload, [9, 0, 0, 0]);
+
+        let success = MacroSuccessNoticePacket.encode();
+        let success_raw = PacketReader::from_frame(&success).expect("frame should decode");
+        assert_eq!(success_raw.packet_type, game::MACRO_SUCCESS);
+        assert_eq!(success_raw.payload, []);
+
+        let dropped = DroppedSlotNoticePacket { reserved: 1 }.encode_on(game::MSG_ALL_FAILURE);
+        let dropped_raw = PacketReader::from_frame(&dropped).expect("frame should decode");
+        assert_eq!(dropped_raw.packet_type, game::MSG_ALL_FAILURE);
+        assert_eq!(dropped_raw.payload, [1, 0, 0, 0]);
     }
 
     #[test]
