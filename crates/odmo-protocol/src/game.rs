@@ -2574,6 +2574,34 @@ impl DigimonDecreaseInchantPacket {
     }
 }
 
+/// `DigimonInchant` notice — opcode 1075.
+/// Modern parser (0xD95DF0) reads one u4 digimon handler, one u2 anchor
+/// (stored as value - 1) and fourteen u2s in two runs of seven, mirroring the
+/// decrease variant; the pairing loop fills seven info-list entries and the
+/// client recomputes the digimon stats through the base-stats, evolution and
+/// digimon tables, dispatching events 41, 167 and 476.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DigimonInchantPacket {
+    pub handler: u32,         // resolved by the client digimon lookup
+    pub anchor: u16,          // stored as (value - 1)
+    pub first_run: Vec<u16>,  // seven u2 values
+    pub second_run: Vec<u16>, // seven u2 values paired with first_run
+}
+
+impl DigimonInchantPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert_eq!(self.first_run.len(), 7, "first run carries seven u2 slots");
+        assert_eq!(self.second_run.len(), 7, "second run carries seven u2 slots");
+        let mut writer = PacketWriter::new(game::DIGIMON_INCHANT);
+        writer.write_u32(self.handler);
+        writer.write_u16(self.anchor);
+        for value in self.first_run.iter().chain(&self.second_run) {
+            writer.write_u16(*value);
+        }
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6629,6 +6657,25 @@ mod tests {
         assert_eq!(&raw.payload[..2], &[4, 0]);
         assert_eq!(&raw.payload[2..16], &(0u16..7).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
         assert_eq!(&raw.payload[16..30], &(10u16..17).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
+    }
+
+    #[test]
+    fn inchant_writes_handler_anchor_and_two_runs() {
+        let packet = DigimonInchantPacket {
+            handler: 0xAABB,
+            anchor: 2,
+            first_run: (0..7).collect(),
+            second_run: (10..17).collect(),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_INCHANT);
+        assert_eq!(raw.payload.len(), 34);
+        assert_eq!(&raw.payload[..2], &[0xBB, 0xAA]);
+        assert_eq!(&raw.payload[4..6], &[2, 0]);
+        assert_eq!(&raw.payload[6..20], &(0u16..7).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
+        assert_eq!(&raw.payload[20..34], &(10u16..17).map(|v| v.to_le_bytes()).flatten().collect::<Vec<u8>>()[..]);
     }
 
     #[test]

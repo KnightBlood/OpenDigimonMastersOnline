@@ -388,6 +388,11 @@ pub mod game {
     // decrements a 69-byte skill-table row and pings event 718 plus an
     // empty event-476 (44996 registry 1083/0xD96B90).
     pub const DIGIMON_DECREASE_INCHANT: i16 = 1083;
+    // Enchant notice {u4 digimon handler; u2 anchor (client stores value - 1);
+    // u2 x14 in two runs of seven}; same pairing loop as the decrease variant,
+    // then a full stat recompute through the base-stats/evolution/digimon
+    // tables and events 41, 167 and 476 (44996 registry 1075/0xD95DF0).
+    pub const DIGIMON_INCHANT: i16 = 1075;
     // Enchant-info notice: {u4 digimon handler; u2 base; five u2 values} —
     // the five u2s insert into fixed positions 0, 1, 2, 4 and 6 of the
     // digimon's enchant-info list, then the client refreshes that digimon

@@ -38,7 +38,7 @@ pub use game::{
     GameGetExpNoticePacket, GameTargetInfoPacket, GameChangeStatPacket, GameEventNoticePacket,
     DigimonFacilitationPacket, DigimonIncubaterErrorPacket, DigimonIncubaterListPacket,
     DigimonIncubaterSlotChangePacket, DigimonInchantInfoPacket, DigimonDecreaseInchantPacket,
-    DigimonSkillLimitOpenPacket, DigimonSkillPointInitPacket,
+    DigimonInchantPacket, DigimonSkillLimitOpenPacket, DigimonSkillPointInitPacket,
     BattleTagFailurePacket, BattleTagSuccessPacket, CareSlotSizePacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
