@@ -296,6 +296,11 @@ pub mod game {
     // entity and the CSkillTable row, then branches on the handler kind
     // popping message lines through ev42 (44996 0xDC7A00, raw asm).
     pub const SKILL_ACTIVE_SKILL_EFF: i16 = 1117;
+    // Skill monster buff {u4 slot; u4 monster_key; u4 param}: resolves the
+    // entity and the CMonsterTable row (kind 4/13/14 switch), then applies
+    // the 0x9CE2 buff text and pops the console line through ev42
+    // (44996 0xD8E070, raw asm).
+    pub const SKILL_MONSTER_BUFF: i16 = 1115;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

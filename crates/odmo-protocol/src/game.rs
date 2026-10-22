@@ -1731,6 +1731,28 @@ impl SkillActiveEffectPacket {
     }
 }
 
+/// `Skill::MonsterBuff` — opcode 1115: {u4 slot; u4 monster_key; u4 param}.
+/// Resolves the entity through the slot and the CMonsterTable row through
+/// the key, branches on the row kind (4/13, 14, or fallback message),
+/// applies the 0x9CE2 buff text with the scaled float, and pops the console
+/// line through event 42.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillMonsterBuffPacket {
+    pub slot: u32,
+    pub monster_key: u32,
+    pub param: u32, // unresolved buff amplitude
+}
+
+impl SkillMonsterBuffPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_MONSTER_BUFF);
+        writer.write_u32(self.slot);
+        writer.write_u32(self.monster_key);
+        writer.write_u32(self.param);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8311,6 +8333,23 @@ mod tests {
         assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
         assert_eq!(&raw.payload[4..8], &200u32.to_le_bytes());
         assert_eq!(&raw.payload[8..], &7u16.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_monster_buff_writes_slot_key_and_param() {
+        let packet = SkillMonsterBuffPacket {
+            slot: 3,
+            monster_key: 1234,
+            param: 5,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_MONSTER_BUFF);
+        assert_eq!(raw.payload.len(), 12);
+        assert_eq!(&raw.payload[..4], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &1234u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..], &5u32.to_le_bytes());
     }
 
     #[test]
