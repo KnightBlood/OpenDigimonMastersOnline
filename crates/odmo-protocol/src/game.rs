@@ -1407,6 +1407,21 @@ impl TamerEquipItemPacket {
     }
 }
 
+/// `Master::UserInfoNotFound` — opcode 9921: one modern name string; the
+/// client prints the "(name) is not found" console line through event 42.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterUserInfoNotFoundPacket {
+    pub name: String,
+}
+
+impl MasterUserInfoNotFoundPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_USER_INFO_NOT_FOUND);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7686,6 +7701,15 @@ mod tests {
             raw.payload,
             [12, 0, 5, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0, 4]
         );
+    }
+
+    #[test]
+    fn master_user_info_not_found_writes_name() {
+        let packet = MasterUserInfoNotFoundPacket { name: "Zed".to_string() }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_USER_INFO_NOT_FOUND);
+        assert_eq!(raw.payload, [3, 0, b'Z', b'e', b'd']);
     }
 
     #[test]

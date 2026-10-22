@@ -224,6 +224,10 @@ pub mod game {
     // aura (item-table row kind 31 with the T_Aura visual pair)
     // (44996 0xDD03E0, raw asm).
     pub const TAMER_EQUIP_ITEM: i16 = 1310;
+    // Master user-info lookup miss {s2 name}: the client answers the GM
+    // console with the "(name) is not found" line on ev42
+    // (44996 0xD8F990, raw asm).
+    pub const MASTER_USER_INFO_NOT_FOUND: i16 = 9921;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
