@@ -4316,6 +4316,38 @@ impl GameLevelUpPacket {
     }
 }
 
+/// `GameBattleOn` notice — opcode 1034.
+/// Modern parser (0xDA6770) reads `{u4 handler_id}` and flags the resolved
+/// entity as in-battle (vm+192 call); zero ids are ignored client-side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameBattleOnPacket {
+    pub handler_id: u32,
+}
+
+impl GameBattleOnPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_BATTLE_ON);
+        writer.write_u32(self.handler_id);
+        writer.finalize()
+    }
+}
+
+/// `GameBattleOff` notice — opcode 1035.
+/// Modern parser (0xDA67E0) reads `{u4 handler_id}`, clears the entity battle
+/// state and resets a monster-only field (+0x1332) for CMonster objects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameBattleOffPacket {
+    pub handler_id: u32,
+}
+
+impl GameBattleOffPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_BATTLE_OFF);
+        writer.write_u32(self.handler_id);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -5344,6 +5376,20 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::GAME_LEVEL_UP);
         assert_eq!(raw.payload, [7, 0, 0, 0, 42]);
+    }
+
+    #[test]
+    fn game_battle_notices_write_single_u32_handler() {
+        let on = GameBattleOnPacket { handler_id: 0xAB }.encode();
+        let off = GameBattleOffPacket { handler_id: 0xAB }.encode();
+
+        let on_raw = PacketReader::from_frame(&on).expect("frame should decode");
+        assert_eq!(on_raw.packet_type, game::GAME_BATTLE_ON);
+        assert_eq!(on_raw.payload, [0xAB, 0, 0, 0]);
+
+        let off_raw = PacketReader::from_frame(&off).expect("frame should decode");
+        assert_eq!(off_raw.packet_type, game::GAME_BATTLE_OFF);
+        assert_eq!(off_raw.payload, [0xAB, 0, 0, 0]);
     }
 
     #[test]

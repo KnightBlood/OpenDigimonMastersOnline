@@ -53,6 +53,10 @@ pub mod game {
     // Level-up notice {u4 handler_id, u1 level} -> event 667
     // (44996 registry 1019/0xDA6C60, builder case pGame::LevelUp).
     pub const GAME_LEVEL_UP: i16 = 1019;
+    // Battle-state notices {u4 handler_id} resolved through the entity table
+    // (44996 registry 1034/0xDA6770 and 1035/0xDA67E0).
+    pub const GAME_BATTLE_ON: i16 = 1034;
+    pub const GAME_BATTLE_OFF: i16 = 1035;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;
