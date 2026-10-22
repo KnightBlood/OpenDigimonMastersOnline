@@ -342,6 +342,13 @@ pub mod game {
     // becomes a list node consumed by the delete-list handler, and event
     // 197 pops the code afterwards (44996 0xD9CE20, raw asm).
     pub const ITEM_PARTY_CROP: i16 = 3939;
+    // Skill around-skill animation {u1 flag; u4 seconds}: nonzero flags
+    // apply the around-skill cooldown animation, converting the value to
+    // float seconds against the frame rate and popping the warning popup.
+    // A zero flag delegates to an embedded animation-state parser first
+    // (u4 pair plus a chained u4 handler list, unresolved tail) and skips
+    // the cooldown path (44996 0xDC2420).
+    pub const SKILL_AROUND_SKILL_ANI: i16 = 1111;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

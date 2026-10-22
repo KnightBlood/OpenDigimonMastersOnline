@@ -63,6 +63,7 @@ pub use game::{
     MasterConnCountGroup, MasterConnCountInfoPacket,
     ItemCapsuleRow, ItemCapsuleToItemPacket, ItemTimeoutPacket,
     ItemPartyCropMember, ItemPartyCropPacket,
+    SkillAroundSkillAniPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

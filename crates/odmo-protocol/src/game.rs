@@ -2048,6 +2048,28 @@ impl ItemPartyCropPacket {
     }
 }
 
+/// `Skill::AroundSkillAni` — opcode 1111: {u1 flag; u4 seconds}. Nonzero
+/// flags apply the around-skill cooldown animation, converting the value
+/// to float seconds against the frame rate before storing it into the
+/// timer slot (and popping the warning popup when the dialog singleton is
+/// up). A zero flag hands the cursor to an embedded animation-state
+/// parser (a u4 pair plus a chained u4 handler list) first — that tail is
+/// unresolved — and in every bail-out path consumes the trailing u4.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SkillAroundSkillAniPacket {
+    pub flag: u8,
+    pub seconds: u32, // integer seconds, cast to f32 client-side
+}
+
+impl SkillAroundSkillAniPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_AROUND_SKILL_ANI);
+        writer.write_u8(self.flag);
+        writer.write_u32(self.seconds);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8857,6 +8879,21 @@ mod tests {
         assert_eq!(raw.payload[16], 2);
         assert_eq!(&raw.payload[17..19], &5u16.to_le_bytes());
         assert_eq!(&raw.payload[19..], b"Tamer");
+    }
+
+    #[test]
+    fn skill_around_skill_ani_writes_flag_and_seconds() {
+        let packet = SkillAroundSkillAniPacket {
+            flag: 1,
+            seconds: 30,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_AROUND_SKILL_ANI);
+        assert_eq!(raw.payload.len(), 5);
+        assert_eq!(raw.payload[0], 1);
+        assert_eq!(&raw.payload[1..5], &30u32.to_le_bytes());
     }
 
     #[test]
