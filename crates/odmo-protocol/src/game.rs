@@ -2070,6 +2070,105 @@ impl SkillAroundSkillAniPacket {
     }
 }
 
+/// 14-byte record read inside the rows payload: one u64, one u32 and one
+/// u16 back to back; field semantics are unresolved.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DigimonDataChangeRecord14 {
+    pub qword: u64,
+    pub dword: u32,
+    pub word: u16,
+}
+
+fn write_record14(writer: &mut PacketWriter, record: &DigimonDataChangeRecord14) {
+    writer.write_u64(record.qword);
+    writer.write_u32(record.dword);
+    writer.write_u16(record.word);
+}
+
+/// Tag-specific body of `Digimon::DigimonDataChange` (opcode 3242) after
+/// the shared `{u4 tag; u1 a; u1 b; u4 magic}` header. Window feeds client
+/// event 79, Rows feeds event 80, Blobs feeds event 81. The Blobs counts
+/// are raw bytes (`u1`), each covering exactly that many 28-byte records
+/// memcpy'd on the client, which reserves 19 slots per list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DigimonDataChangePayload {
+    Window {
+        c: u8,
+        d: u16,
+        e: u8,
+        f: u16,
+    }, // client event 79
+    Rows {
+        g: u16,
+        first: DigimonDataChangeRecord14,
+        second: DigimonDataChangeRecord14,
+        h: u16,
+        third: DigimonDataChangeRecord14,
+        fourth: DigimonDataChangeRecord14,
+    }, // client event 80
+    Blobs {
+        first: Vec<[u8; 28]>,
+        second: Vec<[u8; 28]>,
+    }, // client event 81
+}
+
+/// `Digimon::DigimonDataChange` — opcode 3242: {u4 tag; u1 a; u1 b; u4
+/// magic; tag body}. The magic field must read 30803 (0x7853); any other
+/// value pops the reject line through client event 82 before the body is
+/// parsed. Tags 0, 1 and 2 select the payloads above.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DigimonDataChangePacket {
+    pub tag: u32, // 0, 1 or 2; other tags pop the reject line client-side
+    pub field_a: u8,
+    pub field_b: u8,
+    pub magic: u32,
+    pub payload: DigimonDataChangePayload,
+}
+
+impl DigimonDataChangePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_DATA_CHANGE);
+        writer.write_u32(self.tag);
+        writer.write_u8(self.field_a);
+        writer.write_u8(self.field_b);
+        writer.write_u32(self.magic);
+        match &self.payload {
+            DigimonDataChangePayload::Window { c, d, e, f } => {
+                writer.write_u8(*c);
+                writer.write_u16(*d);
+                writer.write_u8(*e);
+                writer.write_u16(*f);
+            }
+            DigimonDataChangePayload::Rows {
+                g,
+                first,
+                second,
+                h,
+                third,
+                fourth,
+            } => {
+                writer.write_u16(*g);
+                write_record14(&mut writer, first);
+                write_record14(&mut writer, second);
+                writer.write_u16(*h);
+                write_record14(&mut writer, third);
+                write_record14(&mut writer, fourth);
+            }
+            DigimonDataChangePayload::Blobs { first, second } => {
+                writer.write_u8(first.len() as u8);
+                for record in first {
+                    writer.write_bytes(record);
+                }
+                writer.write_u8(second.len() as u8);
+                for record in second {
+                    writer.write_bytes(record);
+                }
+            }
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8894,6 +8993,107 @@ mod tests {
         assert_eq!(raw.payload.len(), 5);
         assert_eq!(raw.payload[0], 1);
         assert_eq!(&raw.payload[1..5], &30u32.to_le_bytes());
+    }
+
+    #[test]
+    fn digimon_data_change_window_writes_tagged_body() {
+        let packet = DigimonDataChangePacket {
+            tag: 0,
+            field_a: 1,
+            field_b: 2,
+            magic: 30803,
+            payload: DigimonDataChangePayload::Window {
+                c: 3,
+                d: 400,
+                e: 5,
+                f: 600,
+            },
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_DATA_CHANGE);
+        assert_eq!(raw.payload.len(), 10 + 6);
+        assert_eq!(&raw.payload[..4], &0u32.to_le_bytes());
+        assert_eq!(raw.payload[4], 1);
+        assert_eq!(raw.payload[5], 2);
+        assert_eq!(&raw.payload[6..10], &30803u32.to_le_bytes());
+        assert_eq!(raw.payload[10], 3);
+        assert_eq!(&raw.payload[11..13], &400u16.to_le_bytes());
+        assert_eq!(raw.payload[13], 5);
+        assert_eq!(&raw.payload[14..16], &600u16.to_le_bytes());
+    }
+
+    #[test]
+    fn digimon_data_change_rows_interleaves_u2_and_records() {
+        let record = |w: u16| DigimonDataChangeRecord14 {
+            qword: w as u64 * 11,
+            dword: w as u32 * 13,
+            word: w,
+        };
+        let packet = DigimonDataChangePacket {
+            tag: 1,
+            field_a: 0,
+            field_b: 0,
+            magic: 30803,
+            payload: DigimonDataChangePayload::Rows {
+                g: 7,
+                first: record(1),
+                second: record(2),
+                h: 8,
+                third: record(3),
+                fourth: record(4),
+            },
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_DATA_CHANGE);
+        // tag 4 + a/b 2 + magic 4 + u2 + 14*2 + u2 + 14*2
+        assert_eq!(raw.payload.len(), 10 + 2 + 28 + 2 + 28);
+        assert_eq!(&raw.payload[10..12], &7u16.to_le_bytes());
+        // first record starts at 12: qword 11, dword 13, word 1
+        assert_eq!(&raw.payload[12..20], &11u64.to_le_bytes());
+        assert_eq!(&raw.payload[20..24], &13u32.to_le_bytes());
+        assert_eq!(&raw.payload[24..26], &1u16.to_le_bytes());
+        // second record at 26: qword 22
+        assert_eq!(&raw.payload[26..34], &22u64.to_le_bytes());
+        // h at 40
+        assert_eq!(&raw.payload[40..42], &8u16.to_le_bytes());
+        // third record complements word 3, fourth word 4
+        assert_eq!(&raw.payload[54..56], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[68..70], &4u16.to_le_bytes());
+    }
+
+    #[test]
+    fn digimon_data_change_blobs_writes_counted_28_byte_rows() {
+        let row = |b: u8| {
+            let mut record = [0u8; 28];
+            record[0] = b;
+            record
+        };
+        let packet = DigimonDataChangePacket {
+            tag: 2,
+            field_a: 0,
+            field_b: 0,
+            magic: 30803,
+            payload: DigimonDataChangePayload::Blobs {
+                first: vec![row(1), row(2)],
+                second: vec![row(3)],
+            },
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_DATA_CHANGE);
+        // tag 4 + a/b 2 + magic 4 + (1 + 56) + (1 + 28)
+        assert_eq!(raw.payload.len(), 10 + 57 + 29);
+        assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
+        assert_eq!(raw.payload[10], 2);
+        assert_eq!(&raw.payload[11..39], &row(1));
+        assert_eq!(&raw.payload[39..67], &row(2));
+        assert_eq!(raw.payload[67], 1);
+        assert_eq!(&raw.payload[68..], &row(3));
     }
 
     #[test]

@@ -64,6 +64,7 @@ pub use game::{
     ItemCapsuleRow, ItemCapsuleToItemPacket, ItemTimeoutPacket,
     ItemPartyCropMember, ItemPartyCropPacket,
     SkillAroundSkillAniPacket,
+    DigimonDataChangeRecord14, DigimonDataChangePayload, DigimonDataChangePacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

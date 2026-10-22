@@ -349,6 +349,14 @@ pub mod game {
     // (u4 pair plus a chained u4 handler list, unresolved tail) and skips
     // the cooldown path (44996 0xDC2420).
     pub const SKILL_AROUND_SKILL_ANI: i16 = 1111;
+    // Digimon data-change {u4 tag; u1 a; u1 b; u4 magic; tag-body}: the
+    // magic must read 30803 (0x7853) or the client pops the reject line
+    // through event 82. Tag 0 - window payload (u1; u2; u1; u2) through
+    // event 79; tag 1 - rows payload {u2; 14-byte record; 14-byte record;
+    // u2; 14-byte record; 14-byte record} through event 80; tag 2 - blobs
+    // payload {u1 count; count x 28-byte record; u1 count; count x
+    // 28-byte record} through event 81 (44996 0xDB51C0).
+    pub const DIGIMON_DATA_CHANGE: i16 = 3242;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
