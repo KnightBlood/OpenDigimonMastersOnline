@@ -147,6 +147,20 @@ pub mod game {
     // Skill-chip result {r4 handler; r4 skill_id}: the CSkillTable row keyed
     // by skill_id with kind 1 or 47 pops the buff message (44996 0xDC8B40).
     pub const SKILL_RESULT_CHIP: i16 = 1122;
+    // Cross-inventory slot-size update {r4; u2; r4; r4} -> ev491
+    // (44996 0xDB0D80).
+    pub const ITEM_CROSS_INVEN_SLOT_SIZE: i16 = 3966;
+    // Move-clear removal {r4 handler; r4 item_id}: the client checks the
+    // CItemTable row (+204) and pops the "Event\%s.nif" visual via 901112
+    // (44996 0xDB0E90).
+    pub const ITEM_MOVE_CLEAR: i16 = 3962;
+    // Cash trade timeout {u2; r4; r4} -> ev467 (44996 0xD9BEE0).
+    pub const ITEM_CASH_TRADE_TIMEOUT: i16 = 3984;
+    // Make result {u1 kind; u1 slot}: 0 clears a digimon skill-table row
+    // (offset 65 flag = -1), 1/3/4 fire ev586 with 1000/3000/4000 + slot, 2
+    // fires ev68 {slot}, 5 fires ev586 {5000} and 9 fires ev68 {1}
+    // (44996 0xD9B730).
+    pub const ITEM_MAKE_RESULT: i16 = 3983;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

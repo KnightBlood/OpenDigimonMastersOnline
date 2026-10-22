@@ -957,6 +957,80 @@ impl SkillResultChipPacket {
     }
 }
 
+/// `CrossInvenSlotSize` — opcode 3966: {u4; u2; u4; u4} handed to event 491.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CrossInvenSlotSizePacket {
+    pub first: u32,  // unresolved
+    pub second: u16, // unresolved
+    pub third: u32,  // unresolved
+    pub fourth: u32, // unresolved
+}
+
+impl CrossInvenSlotSizePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_CROSS_INVEN_SLOT_SIZE);
+        writer.write_u32(self.first);
+        writer.write_u16(self.second);
+        writer.write_u32(self.third);
+        writer.write_u32(self.fourth);
+        writer.finalize()
+    }
+}
+
+/// `MoveClear` — opcode 3962: {u4 handler; u4 item_id}; the client gates on
+/// the handler and pops the removal visual keyed by the item table row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ItemMoveClearPacket {
+    pub handler: u32, // entity gate
+    pub item_id: u32, // CItemTable key
+}
+
+impl ItemMoveClearPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_MOVE_CLEAR);
+        writer.write_u32(self.handler);
+        writer.write_u32(self.item_id);
+        writer.finalize()
+    }
+}
+
+/// `CashItemTradeTimeOut` — opcode 3984: {u2; u4; u4} handed to event 467.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CashTradeTimeoutPacket {
+    pub trade: u16, // unresolved
+    pub first: u32, // unresolved
+    pub second: u32, // unresolved
+}
+
+impl CashTradeTimeoutPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_CASH_TRADE_TIMEOUT);
+        writer.write_u16(self.trade);
+        writer.write_u32(self.first);
+        writer.write_u32(self.second);
+        writer.finalize()
+    }
+}
+
+/// `Make` — opcode 3983: {u1 result kind; u1 slot}; kind 0 clears a digimon
+/// skill-table row, 1/3/4 fire event 586 with 1000/3000/4000 plus the slot,
+/// kind 2 fires event 68 with the slot, kind 5 fires event 586 with 5000 and
+/// kind 9 fires event 68 with 1.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ItemMakeResultPacket {
+    pub kind: u8, // switch selector
+    pub slot: u8, // unresolved
+}
+
+impl ItemMakeResultPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_MAKE_RESULT);
+        writer.write_u8(self.kind);
+        writer.write_u8(self.slot);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -6991,6 +7065,29 @@ mod tests {
         let chip_raw = PacketReader::from_frame(&chip).expect("frame should decode");
         assert_eq!(chip_raw.packet_type, game::SKILL_RESULT_CHIP);
         assert_eq!(chip_raw.payload, [7, 0, 0, 0, 8, 0, 0, 0]);
+    }
+
+    #[test]
+    fn cross_slot_move_clear_trade_timeout_and_make_fill_expected_bodies() {
+        let cross = CrossInvenSlotSizePacket { first: 1, second: 2, third: 3, fourth: 4 }.encode();
+        let cross_raw = PacketReader::from_frame(&cross).expect("frame should decode");
+        assert_eq!(cross_raw.packet_type, game::ITEM_CROSS_INVEN_SLOT_SIZE);
+        assert_eq!(cross_raw.payload, [1, 0, 0, 0, 2, 0, 3, 0, 0, 0, 4, 0, 0, 0]);
+
+        let clear = ItemMoveClearPacket { handler: 9, item_id: 10 }.encode();
+        let clear_raw = PacketReader::from_frame(&clear).expect("frame should decode");
+        assert_eq!(clear_raw.packet_type, game::ITEM_MOVE_CLEAR);
+        assert_eq!(clear_raw.payload, [9, 0, 0, 0, 10, 0, 0, 0]);
+
+        let timeout = CashTradeTimeoutPacket { trade: 11, first: 12, second: 13 }.encode();
+        let timeout_raw = PacketReader::from_frame(&timeout).expect("frame should decode");
+        assert_eq!(timeout_raw.packet_type, game::ITEM_CASH_TRADE_TIMEOUT);
+        assert_eq!(timeout_raw.payload, [11, 0, 12, 0, 0, 0, 13, 0, 0, 0]);
+
+        let make = ItemMakeResultPacket { kind: 2, slot: 5 }.encode();
+        let make_raw = PacketReader::from_frame(&make).expect("frame should decode");
+        assert_eq!(make_raw.packet_type, game::ITEM_MAKE_RESULT);
+        assert_eq!(make_raw.payload, [2, 5]);
     }
 
     #[test]
