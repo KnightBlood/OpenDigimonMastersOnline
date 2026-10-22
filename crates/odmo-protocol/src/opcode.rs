@@ -315,6 +315,12 @@ pub mod game {
     // kinds 16 and 17 are a variant that consumes an extra leading
     // count/list block first (unresolved) (44996 0xDC25B0).
     pub const SKILL_AROUND_SKILL: i16 = 1110;
+    // Skill range skill-damage {u4 caster; u2 atk_count; u1 flag; u4
+    // target; atk_count x {u4 actor; u1 pad; blob40; stat-pair list
+    // (u1 slot; u4 value) x n, closed by a u1 sentinel >= 0x12};
+    // u2 tgt_count; tgt_count x {u4 handler; blob40}}: rows feed the
+    // damage dispatch (44996 0xDC6400, raw asm).
+    pub const SKILL_RANGE_SKILL_DMG: i16 = 1116;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

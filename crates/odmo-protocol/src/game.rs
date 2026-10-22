@@ -1834,6 +1834,86 @@ impl SkillAroundSkillPacket {
     }
 }
 
+/// `Skill::RangeSkillDmg` — opcode 1116: {u4 caster; u2 atk_count; u1 flag;
+/// u4 primary_target; atk_count x attacker; u2 tgt_count; tgt_count x
+/// target}. Each attacker row carries a 40-byte stat blob plus a
+/// self-terminated list of `slot,value` pairs whose final u1 sentinel
+/// (>= 0x12) closes it; target rows carry only the handler and the blob.
+/// Both row kinds feed the damage dispatch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkillRangeAttacker {
+    pub actor: u32,
+    pub pad: u8, // unresolved per-row flag
+    pub blob: [u8; 40],
+    pub stats: Vec<(u8, u32)>, // (slot 0..0x11, value)
+    pub stats_end: u8,         // terminating sentinel slot (>= 0x12)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkillRangeTarget {
+    pub handler: u32,
+    pub blob: [u8; 40],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkillRangeSkillDmgPacket {
+    pub caster: u32,
+    pub flag: u8,
+    pub primary_target: u32,
+    pub attackers: Vec<SkillRangeAttacker>,
+    pub targets: Vec<SkillRangeTarget>,
+}
+
+impl Default for SkillRangeSkillDmgPacket {
+    fn default() -> Self {
+        Self {
+            caster: 0,
+            flag: 0,
+            primary_target: 0,
+            attackers: Vec::new(),
+            targets: Vec::new(),
+        }
+    }
+}
+
+impl SkillRangeSkillDmgPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.attackers.len() <= u16::MAX as usize,
+            "range-skill attackers overflow u2"
+        );
+        assert!(
+            self.targets.len() <= u16::MAX as usize,
+            "range-skill targets overflow u2"
+        );
+        let mut writer = PacketWriter::new(game::SKILL_RANGE_SKILL_DMG);
+        writer.write_u32(self.caster);
+        writer.write_u16(self.attackers.len() as u16);
+        writer.write_u8(self.flag);
+        writer.write_u32(self.primary_target);
+        for attacker in &self.attackers {
+            writer.write_u32(attacker.actor);
+            writer.write_u8(attacker.pad);
+            for byte in &attacker.blob {
+                writer.write_u8(*byte);
+            }
+            for (slot, value) in &attacker.stats {
+                writer.write_u8(*slot);
+                writer.write_u32(*value);
+            }
+            writer.write_u8(attacker.stats_end);
+        }
+        writer.write_u16(self.targets.len() as u16);
+        for target in &self.targets {
+            writer.write_u32(target.handler);
+            for byte in &target.blob {
+                writer.write_u8(*byte);
+            }
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8493,6 +8573,42 @@ mod tests {
         assert_eq!(&raw.payload[15..19], &9u32.to_le_bytes());
         assert_eq!(&raw.payload[19..23], &88u32.to_le_bytes());
         assert_eq!(raw.payload[23], 3);
+    }
+
+    #[test]
+    fn skill_range_skill_dmg_writes_rows_and_lists() {
+        let packet = SkillRangeSkillDmgPacket {
+            caster: 1,
+            flag: 1,
+            primary_target: 2,
+            attackers: vec![SkillRangeAttacker {
+                actor: 3,
+                pad: 0,
+                blob: [9u8; 40],
+                stats: vec![(4, 100)],
+                stats_end: 0xFF,
+            }],
+            targets: vec![SkillRangeTarget { handler: 5, blob: [7u8; 40] }],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_RANGE_SKILL_DMG);
+        // header 4+2+1+4 + attacker (4+1+40+1+4+1) + targets 2+4+40
+        assert_eq!(raw.payload.len(), 11 + 51 + 46);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &1u16.to_le_bytes());
+        assert_eq!(raw.payload[6], 1);
+        assert_eq!(&raw.payload[7..11], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[11..15], &3u32.to_le_bytes());
+        assert_eq!(raw.payload[15], 0);
+        assert_eq!(&raw.payload[16..56], &[9u8; 40]);
+        assert_eq!(raw.payload[56], 4);
+        assert_eq!(&raw.payload[57..61], &100u32.to_le_bytes());
+        assert_eq!(raw.payload[61], 0xFF);
+        assert_eq!(&raw.payload[62..64], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[64..68], &5u32.to_le_bytes());
+        assert_eq!(&raw.payload[68..], &[7u8; 40]);
     }
 
     #[test]
