@@ -331,6 +331,12 @@ pub mod game {
     // +0x9DC list through event 11, and a scene item 901107/901108 then
     // triggers the 901109 cast (44996 0xDAD3E0).
     pub const ITEM_CAPSULE_TO_ITEM: i16 = 3937;
+    // Item timeout {u1 kind_cc; u2 code; u4 row_key; u1 kind_c8}: resolves
+    // the CItemTable row; rows of kind 3 reaching a special +0x18 value drop
+    // the matching slot from the +0x7664 list, while other rows stop the
+    // 0x4E3D effect, open the timed-removal window filled with the two
+    // kinds plus the code, and pop event 687 (44996 0xD9B8D0, raw asm).
+    pub const ITEM_TIMEOUT: i16 = 3933;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

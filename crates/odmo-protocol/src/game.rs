@@ -1983,6 +1983,30 @@ impl ItemCapsuleToItemPacket {
     }
 }
 
+/// `Item::Timeout` — opcode 3933: {u1 kind_cc; u2 code; u4 row_key; u1
+/// kind_c8}. Resolves the CItemTable row through the key: rows of kind 3
+/// hitting a special +0x18 value drop the matching slot from the +0x7664
+/// list, while other rows stop the 0x4E3D effect, open the timed-removal
+/// window filled with the two kinds plus the code, and pop event 687.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ItemTimeoutPacket {
+    pub kind_cc: u8, // unresolved; stored into the window field +0xCC
+    pub code: u16,   // item code surfaced in the window
+    pub row_key: u32, // CItemTable row key
+    pub kind_c8: u8, // unresolved; stored into the window field +0xC8
+}
+
+impl ItemTimeoutPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_TIMEOUT);
+        writer.write_u8(self.kind_cc);
+        writer.write_u16(self.code);
+        writer.write_u32(self.row_key);
+        writer.write_u8(self.kind_c8);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8742,6 +8766,25 @@ mod tests {
         assert_eq!(&raw.payload[16..18], &800u16.to_le_bytes());
         assert_eq!(&raw.payload[18..22], &20u32.to_le_bytes());
         assert_eq!(&raw.payload[22..26], &0u32.to_le_bytes());
+    }
+
+    #[test]
+    fn item_timeout_writes_kinds_code_and_key() {
+        let packet = ItemTimeoutPacket {
+            kind_cc: 1,
+            code: 3000,
+            row_key: 42,
+            kind_c8: 2,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ITEM_TIMEOUT);
+        assert_eq!(raw.payload.len(), 8);
+        assert_eq!(raw.payload[0], 1);
+        assert_eq!(&raw.payload[1..3], &3000u16.to_le_bytes());
+        assert_eq!(&raw.payload[3..7], &42u32.to_le_bytes());
+        assert_eq!(raw.payload[7], 2);
     }
 
     #[test]
