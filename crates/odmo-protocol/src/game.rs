@@ -4348,6 +4348,30 @@ impl GameBattleOffPacket {
     }
 }
 
+/// `GameHealUp` notice — opcode 1023.
+/// Modern parser (0xDA6D70) reads `{u4 handler_id; u4 a; u4 b; u4 c}`, resolves
+/// the entity (class checks 11/13 = partner digimon family) and invokes three
+/// sequential status setters (status-object vtable +27/+29/+30). Setter
+/// semantics are unattributed; wire field order is preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameHealUpPacket {
+    pub handler_id: u32,
+    pub value_a: u32, // unresolved (status setter 1)
+    pub value_b: u32, // unresolved (status setter 2)
+    pub value_c: u32, // unresolved (status setter 3)
+}
+
+impl GameHealUpPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_HEAL_UP);
+        writer.write_u32(self.handler_id);
+        writer.write_u32(self.value_a);
+        writer.write_u32(self.value_b);
+        writer.write_u32(self.value_c);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -5390,6 +5414,24 @@ mod tests {
         let off_raw = PacketReader::from_frame(&off).expect("frame should decode");
         assert_eq!(off_raw.packet_type, game::GAME_BATTLE_OFF);
         assert_eq!(off_raw.payload, [0xAB, 0, 0, 0]);
+    }
+
+    #[test]
+    fn game_heal_up_notice_writes_four_u32_values() {
+        let packet = GameHealUpPacket {
+            handler_id: 0x10,
+            value_a: 1,
+            value_b: 2,
+            value_c: 3,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_HEAL_UP);
+        assert_eq!(
+            raw.payload,
+            [0x10, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]
+        );
     }
 
     #[test]

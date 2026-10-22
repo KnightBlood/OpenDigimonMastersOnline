@@ -29,7 +29,7 @@ pub use game::{
     DigimonEvolutionSuccessPacket, DigimonToSpiritResultPacket, DigimonWalkPacket,
     DungeonArenaNextStagePacket, EncyclopediaDeckBuffUsePacket, EncyclopediaLoadPacket,
     EncyclopediaReceiveRewardItemPacket, FriendConnectPacket, GameConnectionPacket, GameBattleOffPacket, GameBattleOnPacket,
-    GameHpRatePacket, GameInitialInfoPacket, GameLevelUpPacket, GameRequest, GiftStorageRetrievePacket, GuildAuthorityUpdatePacket,
+    GameHpRatePacket, GameInitialInfoPacket, GameLevelUpPacket, GameHealUpPacket, GameRequest, GiftStorageRetrievePacket, GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
     GuildInviteSuccessPacket, GuildMemberKickPacket, GuildMemberQuitPacket, GuildMessagePacket,

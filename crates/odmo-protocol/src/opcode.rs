@@ -57,6 +57,9 @@ pub mod game {
     // (44996 registry 1034/0xDA6770 and 1035/0xDA67E0).
     pub const GAME_BATTLE_ON: i16 = 1034;
     pub const GAME_BATTLE_OFF: i16 = 1035;
+    // Partner stat-restore notice {u4 handler_id; u4 x3} hitting three
+    // sequential status setters (44996 registry 1023/0xDA6D70).
+    pub const GAME_HEAL_UP: i16 = 1023;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;
