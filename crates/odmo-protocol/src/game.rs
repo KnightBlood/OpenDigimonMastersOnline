@@ -1122,6 +1122,29 @@ impl StoreSummonUsePacket {
     }
 }
 
+/// `Skill::Error` — opcode 1106: {u1 kind; u2 code} plus a dead trailing u2
+/// consumed only when kind == 255. Kind 95 resets on code 0, kind 100 closes
+/// the skill-cast window on code 1, other kinds fall through to the digimon
+/// reset slot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillErrorPacket {
+    pub kind: u8, // 95 / 100 / 255 with distinct behavior
+    pub code: u16,
+}
+
+impl SkillErrorPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_ERROR);
+        writer.write_u8(self.kind);
+        writer.write_u16(self.code);
+        if self.kind == 255 {
+            // Dead discriminator tail consumed by the kind-255 branch.
+            writer.write_u16(0);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7225,6 +7248,19 @@ mod tests {
         let summon_raw = PacketReader::from_frame(&summon).expect("frame should decode");
         assert_eq!(summon_raw.packet_type, game::ITEM_STORE_SUMMON_USE);
         assert_eq!(summon_raw.payload, [1, 1, 0, 0, 0, 2, 0, 0, 0]);
+    }
+
+    #[test]
+    fn skill_error_writes_conditional_dead_tail() {
+        let plain = SkillErrorPacket { kind: 95, code: 0 }.encode();
+        let plain_raw = PacketReader::from_frame(&plain).expect("frame should decode");
+        assert_eq!(plain_raw.packet_type, game::SKILL_ERROR);
+        assert_eq!(plain_raw.payload, [95, 0, 0]);
+
+        let dead = SkillErrorPacket { kind: 255, code: 7 }.encode();
+        let dead_raw = PacketReader::from_frame(&dead).expect("frame should decode");
+        assert_eq!(dead_raw.packet_type, game::SKILL_ERROR);
+        assert_eq!(dead_raw.payload, [255, 7, 0, 0, 0]);
     }
 
     #[test]

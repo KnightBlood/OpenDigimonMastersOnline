@@ -176,6 +176,11 @@ pub mod game {
     // Store-summon use {u1 count; count x {r4; r4}} -> ev466
     // (44996 0xD9BC10).
     pub const ITEM_STORE_SUMMON_USE: i16 = 3953;
+    // Skill error {u1 kind; u2 code; dead u2 when kind = 255}: kind 95
+    // resets only on code 0, kind 100 closes the cast window on code 1 and
+    // other kinds fall through to the digimon vtable reset
+    // (44996 0xDC5420).
+    pub const SKILL_ERROR: i16 = 1106;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

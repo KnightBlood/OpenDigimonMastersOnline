@@ -46,6 +46,7 @@ pub use game::{
     SkillResultChipPacket, CrossInvenSlotSizePacket, ItemMoveClearPacket,
     CashTradeTimeoutPacket, ItemMakeResultPacket, ItemSkillBatchPacket,
     PinochiVotePacket, PinochiVoteRow, StoreSummonUsePacket, StoreSummonRow,
+    SkillErrorPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
