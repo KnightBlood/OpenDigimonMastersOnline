@@ -31,7 +31,7 @@ use odmo_protocol::{
     LoadBuffsPacket, LoadDropsPacket, LoadInventoryPacket, LoadMobBuffsPacket, LoadMobsPacket,
     LoadTamerPacket, LocalMapSwapPacket, MapSwapPacket, MembershipPacket, MissHitPacket,
     ModernArenaOldRankingInfoPacket, ModernArenaRankingInfoPacket, MonsterRespawnTimerPacket,
-    NpcPurchaseResultPacket, NpcSellResultPacket, OtherTamerDetailInfoPacket,
+    NpcPurchaseResultPacket, NpcSellResultPacket, NpcSellRow, OtherTamerDetailInfoPacket,
     PartnerSkillErrorPacket, PartnerSwitchFailurePacket, PartnerSwitchPacket,
     PartyChangeLootTypePacket, PartyCreatedPacket, PartyInvitePacket, PartyInviteResultPacket,
     PartyJoinPacket, PartyKickPacket, PartyLeaderChangedPacket, PartyLeavePacket,
@@ -1823,6 +1823,7 @@ impl GameApplication {
                 character.inventory.bits += sell_price;
 
                 // Reduce or remove item
+                let sold_serial = item.item_id.max(0) as u32;
                 let remaining = item.amount - sell_amount as i32;
                 if remaining <= 0 {
                     character.inventory.items[slot_idx] = ItemRecord::default();
@@ -1840,6 +1841,11 @@ impl GameApplication {
                 let responses = vec![
                     NpcSellResultPacket {
                         remaining_bits: character.inventory.bits,
+                        rows: vec![NpcSellRow {
+                            kind: 0, // unresolved kind slot, resolved on the client side
+                            serial: sold_serial,
+                            stack: sell_amount,
+                        }],
                     }
                     .encode(),
                     LoadInventoryPacket {

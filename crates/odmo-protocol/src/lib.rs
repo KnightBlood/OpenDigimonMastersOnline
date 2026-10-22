@@ -41,7 +41,7 @@ pub use game::{
     DigimonInchantPacket, DigimonSkillLimitOpenPacket, DigimonSkillPointInitPacket,
     BattleTagFailurePacket, BattleTagSuccessPacket, CareSlotSizePacket,
     ItemCoatNoticePacket, ItemSlotSizePacket, ItemUseFailurePacket, PortableItemFailPacket,
-    ItemCropMoneyPacket, ChangeLimitedAttributePacket,
+    ItemCropMoneyPacket, ChangeLimitedAttributePacket, NpcSellRow,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

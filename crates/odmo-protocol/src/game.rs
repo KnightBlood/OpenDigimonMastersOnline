@@ -845,15 +845,35 @@ impl NpcPurchaseResultPacket {
     }
 }
 
+/// One sold-item row on the sell result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NpcSellRow {
+    pub kind: u8,    // unresolved
+    pub serial: u32, // unresolved
+    pub stack: u16,  // unresolved
+}
+
+/// `NpcSellResult` — opcode 3916 (mirrored from the C2S sell request).
+/// Modern receive parser (0xDA3E50) reads the i64 money field, a u1 row count
+/// and one {u1 kind; u4 serial; u2 stack} row per counted item, pings event 89
+/// with the money amount and keeps the sold rows briefly for the UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NpcSellResultPacket {
     pub remaining_bits: i64,
+    pub rows: Vec<NpcSellRow>,
 }
 
 impl NpcSellResultPacket {
     pub fn encode(&self) -> Vec<u8> {
+        assert!(self.rows.len() <= u8::MAX as usize, "sell rows overflow u1");
         let mut writer = PacketWriter::new(game::NPC_SELL);
         writer.write_i64(self.remaining_bits);
+        writer.write_u8(self.rows.len() as u8);
+        for row in &self.rows {
+            writer.write_u8(row.kind);
+            writer.write_u32(row.serial);
+            writer.write_u16(row.stack);
+        }
         writer.finalize()
     }
 }
@@ -6859,6 +6879,34 @@ mod tests {
         let limited_raw = PacketReader::from_frame(&limited).expect("frame should decode");
         assert_eq!(limited_raw.packet_type, game::ITEM_CHANGE_LIMITED_ATTRIBUTE);
         assert_eq!(limited_raw.payload, [9, 0, 1]);
+    }
+
+    #[test]
+    fn npc_sell_result_writes_money_and_item_rows() {
+        let packet = NpcSellResultPacket {
+            remaining_bits: 3500,
+            rows: vec![
+                NpcSellRow {
+                    kind: 1,
+                    serial: 0xCAFEBABE,
+                    stack: 2,
+                },
+                NpcSellRow {
+                    kind: 0,
+                    serial: 7,
+                    stack: 9,
+                },
+            ],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::NPC_SELL);
+        assert_eq!(raw.payload.len(), 8 + 1 + 7 * 2);
+        assert_eq!(&raw.payload[..8], &3500i64.to_le_bytes());
+        assert_eq!(raw.payload[8], 2); // row count
+        assert_eq!(&raw.payload[9..16], &[1, 0xBE, 0xBA, 0xFE, 0xCA, 2, 0]);
+        assert_eq!(&raw.payload[16..23], &[0, 7, 0, 0, 0, 9, 0]);
     }
 
     #[test]

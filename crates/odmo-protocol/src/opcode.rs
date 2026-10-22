@@ -128,6 +128,9 @@ pub mod game {
     pub const SPLIT_ITEM: i16 = 3907;
     pub const ITEM_REMOVE: i16 = 3909;
     pub const NPC_PURCHASE: i16 = 3915;
+    // C2S sell request; the client also parses 3916 frames on GS2C as the
+    // sell result {i64 money; u1 count; count x {u1 kind; u4 serial; u2
+    // stack rows}} pinging ev89 (44996 receive 0xDA3E50).
     pub const NPC_SELL: i16 = 3916;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
