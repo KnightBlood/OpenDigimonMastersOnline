@@ -363,6 +363,12 @@ pub mod game {
     // nsMacroProtector::stAnswerForImageQuestion) and pops event 357
     // (44996 0xDB61E0 + 0xDB9610).
     pub const GAME_MACRO_QUESTION: i16 = 1064;
+    // Master money set {u8 money}: stores the amount into the local wallet
+    // singleton slot (+60) and pings event 38 (44996 0xDA3A20).
+    pub const MASTER_SET_MONEY: i16 = 9907;
+    // Master guild-skill reset with an empty payload: the parser performs
+    // no cursor reads and only pings event 284 (44996 0xD91860).
+    pub const MASTER_GM_GUILD_SKILL_RESET: i16 = 9990;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

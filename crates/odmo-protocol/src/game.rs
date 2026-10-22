@@ -2217,6 +2217,32 @@ impl GameMacroQuestionPacket {
     }
 }
 
+/// `Master::SetMoney` — opcode 9907: {u8 money}. Stores the amount into
+/// the local wallet singleton slot (+60) and pings event 38.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterSetMoneyPacket {
+    pub money: u64,
+}
+
+impl MasterSetMoneyPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_SET_MONEY);
+        writer.write_u64(self.money);
+        writer.finalize()
+    }
+}
+
+/// `Master::GMGuildSkillReset` — opcode 9990: empty payload. The parser
+/// performs no cursor reads and only pings event 284.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterGmGuildSkillResetPacket;
+
+impl MasterGmGuildSkillResetPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::MASTER_GM_GUILD_SKILL_RESET).finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9178,6 +9204,24 @@ mod tests {
         assert_eq!(&raw.payload[29..33], &6u32.to_le_bytes());
         assert_eq!(&raw.payload[33..37], &7u32.to_le_bytes());
         assert_eq!(&raw.payload[37..41], &8u32.to_le_bytes());
+    }
+
+    #[test]
+    fn master_set_money_writes_u64_amount() {
+        let packet = MasterSetMoneyPacket { money: 123_456_789 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_SET_MONEY);
+        assert_eq!(raw.payload, 123_456_789u64.to_le_bytes());
+    }
+
+    #[test]
+    fn master_gm_guild_skill_reset_writes_empty_payload() {
+        let packet = MasterGmGuildSkillResetPacket.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_GM_GUILD_SKILL_RESET);
+        assert!(raw.payload.is_empty());
     }
 
     #[test]
