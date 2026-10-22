@@ -33,7 +33,7 @@ pub use game::{
     GameTingPacket, GameEmoticonPacket, GameStartMessagePacket, GameDiedAlreadyPacket,
     SvrChannelInfoPacket, BuddyAddPacket, BuddyBanPacket, BuddyNotFoundPacket, BuddyOffPacket,
     BuddyChangeNamePacket, ItemScanNoticePacket, GiftStorageRetrievePacket,
-    AdvertBossCountNoticePacket, AdvertBossDieNoticePacket,
+    AdvertBossCountNoticePacket, AdvertBossDieNoticePacket, AdvertBossCreateNoticePacket,
     MacroResultNoticePacket, MacroSuccessNoticePacket, DroppedSlotNoticePacket,
     GameGetExpNoticePacket, GameTargetInfoPacket, GameChangeStatPacket, GameEventNoticePacket,
     DigimonFacilitationPacket, DigimonIncubaterErrorPacket, DigimonIncubaterListPacket,

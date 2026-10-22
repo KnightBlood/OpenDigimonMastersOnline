@@ -3978,6 +3978,28 @@ impl AdvertBossDieNoticePacket {
     }
 }
 
+/// `AdvertBossCreate` notice — opcode 1060.
+/// Modern parser (0xDAFAD0) reads three u4 fields: the first keys a CMapTable
+/// row, the third keys a CMonsterTable row whose name is copied by the client
+/// and the second stays unresolved; the client then pings event 121 and
+/// registers the advert-boss entry when the local state matches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AdvertBossCreateNoticePacket {
+    pub map_id: u32,     // keyed through CMapTable (table id 33)
+    pub second: u32,     // unresolved
+    pub monster_id: u32, // keyed through CMonsterTable (table id 39)
+}
+
+impl AdvertBossCreateNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ADVERT_BOSS_CREATE);
+        writer.write_u32(self.map_id);
+        writer.write_u32(self.second);
+        writer.write_u32(self.monster_id);
+        writer.finalize()
+    }
+}
+
 /// `DigimonSkillLimitOpen` notice — opcode 3245.
 /// Modern parser (0xDCA180): a nonzero first u4 short-circuits into a plain
 /// disable call; otherwise the client updates one digimon row (bounded index
@@ -6022,6 +6044,23 @@ mod tests {
         assert_eq!(
             die_raw.payload,
             [0x55, 0, 0, 0, 0, 0, 0, 0]
+        );
+
+        let create = AdvertBossCreateNoticePacket {
+            map_id: 500,
+            second: 2,
+            monster_id: 9001,
+        }
+        .encode();
+        let create_raw = PacketReader::from_frame(&create).expect("frame should decode");
+        assert_eq!(create_raw.packet_type, game::ADVERT_BOSS_CREATE);
+        assert_eq!(
+            create_raw.payload,
+            [
+                244, 1, 0, 0, // map id
+                2, 0, 0, 0,    // unresolved
+                41, 35, 0, 0,  // monster id (9001)
+            ]
         );
     }
 
