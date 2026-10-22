@@ -254,6 +254,10 @@ pub mod game {
     // (CHAT_LIMIT_SERVER_BAN_MESSAGE) with the duration split into hours
     // through the #Hour# template (44996 0xD90200, raw asm).
     pub const MASTER_CHAT_BAN_USER: i16 = 9983;
+    // Master skill-stat init {u4 kind; s2; s2}: renders the misc id 37 line
+    // with the "%s tn(%s) dn(%s)" template, then walks the per-slot stat
+    // reset switch before the ev42 console pop (44996 0xD906C0, raw asm).
+    pub const MASTER_INIT_SKILL_STAT: i16 = 9941;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

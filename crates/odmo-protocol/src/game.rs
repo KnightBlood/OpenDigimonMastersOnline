@@ -1534,6 +1534,27 @@ impl MasterChatBanUserPacket {
     }
 }
 
+/// `Master::InitSkillStat` — opcode 9941: {u4 kind; s2 tamer; s2 digimon}.
+/// The client renders the misc id 37 line with the "{tamer} tn({second})
+/// dn({third})" template, walks the per-slot stat reset switch, and pops
+/// the console line through event 42.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterInitSkillStatPacket {
+    pub kind: u32, // stat reset slot selector
+    pub tamer: String,
+    pub digimon: String,
+}
+
+impl MasterInitSkillStatPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_INIT_SKILL_STAT);
+        writer.write_u32(self.kind);
+        writer.write_modern_utf8_string(&self.tamer);
+        writer.write_modern_utf8_string(&self.digimon);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -7973,6 +7994,23 @@ mod tests {
         assert_eq!(raw.payload.len(), 4 + 2 + 3);
         assert_eq!(&raw.payload[..4], &7200u32.to_le_bytes());
         assert_eq!(&raw.payload[4..], [3, 0, b'Z', b'e', b'd']);
+    }
+
+    #[test]
+    fn master_init_skill_stat_writes_kind_and_names() {
+        let packet = MasterInitSkillStatPacket {
+            kind: 3,
+            tamer: "Ann".to_string(),
+            digimon: "Greymon".to_string(),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_INIT_SKILL_STAT);
+        assert_eq!(raw.payload.len(), 4 + 5 + 9);
+        assert_eq!(&raw.payload[..4], &3u32.to_le_bytes());
+        assert_eq!(raw.payload[4..9], [3, 0, b'A', b'n', b'n']);
+        assert_eq!(raw.payload[9..11], [7, 0]); // "Greymon" length
     }
 
     #[test]
