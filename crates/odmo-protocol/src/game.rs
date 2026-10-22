@@ -1710,6 +1710,27 @@ impl SkillAddChipPacket {
     }
 }
 
+/// `Skill::ActiveSkillEff` — opcode 1117: {u4 slot; u4 skill_id; u2 level}.
+/// Resolves the entity through the slot and the CSkillTable row through the
+/// skill id, then branches on the handler kind and pops message lines
+/// through event 42.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillActiveEffectPacket {
+    pub slot: u32,
+    pub skill_id: u32,
+    pub level: u16,
+}
+
+impl SkillActiveEffectPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_ACTIVE_SKILL_EFF);
+        writer.write_u32(self.slot);
+        writer.write_u32(self.skill_id);
+        writer.write_u16(self.level);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8273,6 +8294,23 @@ mod tests {
         assert_eq!(&raw.payload[0..4], &4u32.to_le_bytes());
         assert_eq!(&raw.payload[4..8], &3102u32.to_le_bytes());
         assert_eq!(&raw.payload[8..], &5000u32.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_active_effect_writes_slot_skill_and_level() {
+        let packet = SkillActiveEffectPacket {
+            slot: 1,
+            skill_id: 200,
+            level: 7,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_ACTIVE_SKILL_EFF);
+        assert_eq!(raw.payload.len(), 10);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &200u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..], &7u16.to_le_bytes());
     }
 
     #[test]
