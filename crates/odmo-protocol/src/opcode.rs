@@ -406,6 +406,14 @@ pub mod game {
     // {104, size} (44996 registry 3924/0xDAE3A0, 3925/0xDAE280).
     pub const ITEM_INVEN_SLOT_SIZE: i16 = 3924;
     pub const ITEM_WAREHOUSE_SLOT_SIZE: i16 = 3925;
+    // Use-failure notice {u2 code; u4 item serial; u4 failure kind}: kind 1
+    // opens a failure message box driven by the CItemTable row, kind 13 pings
+    // ev154, kind 19 beeps, other kinds just reset the client
+    // (44996 registry 3902/0xDAD060).
+    pub const ITEM_USE_FAILURE: i16 = 3902;
+    // Portable-item failure {u4 code}: switch 7701 pings ev212, 7702 and 7703
+    // gate on prior portable-item usage (44996 registry 3943/0xDAFE70).
+    pub const ITEM_PORTABLE_FAIL: i16 = 3943;
     // Enchant-info notice: {u4 digimon handler; u2 base; five u2 values} —
     // the five u2s insert into fixed positions 0, 1, 2, 4 and 6 of the
     // digimon's enchant-info list, then the client refreshes that digimon

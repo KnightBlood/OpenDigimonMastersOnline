@@ -2643,6 +2643,43 @@ impl ItemSlotSizePacket {
     }
 }
 
+/// `UseFailure` notice — opcode 3902.
+/// Modern parser (0xDAD060) reads {u2 code; u4 item serial; u4 failure kind};
+/// kind 1 resolves the serial against the CItemTable row and opens a failure
+/// message box carrying the code, kind 13 pings event 154, kind 19 beeps and
+/// remaining kinds only reset the client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ItemUseFailurePacket {
+    pub code: u16,        // message-box code for kind 1
+    pub item_serial: u32, // keyed into CItemTable for kind 1
+    pub failure_kind: u32, // switch selector (1 / 13 / 19 handled)
+}
+
+impl ItemUseFailurePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_USE_FAILURE);
+        writer.write_u16(self.code);
+        writer.write_u32(self.item_serial);
+        writer.write_u32(self.failure_kind);
+        writer.finalize()
+    }
+}
+
+/// `PortableItemFail` notice — opcode 3943: one u4 code; 7701 pings ev212 and
+/// 7702/7703 gate on prior portable-item usage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PortableItemFailPacket {
+    pub code: u32, // switch selector (7701..7703)
+}
+
+impl PortableItemFailPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_PORTABLE_FAIL);
+        writer.write_u32(self.code);
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6740,6 +6777,27 @@ mod tests {
         let warehouse_raw = PacketReader::from_frame(&warehouse).expect("frame should decode");
         assert_eq!(warehouse_raw.packet_type, game::ITEM_WAREHOUSE_SLOT_SIZE);
         assert_eq!(warehouse_raw.payload, [128, 0]);
+    }
+
+    #[test]
+    fn use_failure_and_portable_fail_fill_expected_bodies() {
+        let failure = ItemUseFailurePacket {
+            code: 3,
+            item_serial: 0x1122,
+            failure_kind: 1,
+        }
+        .encode();
+        let failure_raw = PacketReader::from_frame(&failure).expect("frame should decode");
+        assert_eq!(failure_raw.packet_type, game::ITEM_USE_FAILURE);
+        assert_eq!(
+            failure_raw.payload,
+            [3, 0, 0x22, 0x11, 0, 0, 1, 0, 0, 0]
+        );
+
+        let portable = PortableItemFailPacket { code: 7701 }.encode();
+        let portable_raw = PacketReader::from_frame(&portable).expect("frame should decode");
+        assert_eq!(portable_raw.packet_type, game::ITEM_PORTABLE_FAIL);
+        assert_eq!(portable_raw.payload, (7701u32).to_le_bytes());
     }
 
     #[test]
