@@ -332,7 +332,7 @@ pub enum GameRequest {
         digimon_id: u32,
     },
     EncyclopediaDeckBuff {
-        deck_idx: u32,
+        deck_idx: u16,
     },
     OtherTamerDetailInfo {
         target_handler: u32,
@@ -2356,17 +2356,20 @@ impl EncyclopediaReceiveRewardItemPacket {
 }
 
 /// `EncyclopediaDeckBuffUse` packet — opcode 3237.
+/// Modern parser `EncyBook_DeckEff_RecvParser` (0xDB3700) reads
+/// `{u2 option_index; u4 value}` and emits event 161. Consumer 0xE437E0
+/// validates `option_index == 100` as the clear-buffs sentinel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EncyclopediaDeckBuffUsePacket {
-    pub deck_buff_hp: i32,
-    pub deck_buff_as: i16,
+    pub option_index: u16,
+    pub value: u32,
 }
 
 impl EncyclopediaDeckBuffUsePacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::ENCYCLOPEDIA_DECK_BUFF);
-        writer.write_i32(self.deck_buff_hp);
-        writer.write_i16(self.deck_buff_as);
+        writer.write_u16(self.option_index);
+        writer.write_u32(self.value);
         writer.finalize()
     }
 }
@@ -4832,7 +4835,8 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::EncyclopediaGetReward { digimon_id })
             }
             game::ENCYCLOPEDIA_DECK_BUFF => {
-                let deck_idx = reader.read_u32()?;
+                // Modern contract: {u2 option_index} (ENCY_MAX_OPTION == 4).
+                let deck_idx = reader.read_u16()?;
                 Ok(Self::EncyclopediaDeckBuff { deck_idx })
             }
             game::OTHER_TAMER_DETAIL_INFO_REQUEST => {
@@ -5611,6 +5615,24 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::DIGIMON_INCUBATER_ERROR);
         assert_eq!(raw.payload, 0x11223344u32.to_le_bytes());
+    }
+
+    #[test]
+    fn deck_buff_notice_encodes_u2_option_then_u4_value() {
+        // option_index 100 = clear-buffs sentinel (consumer 0xE437E0).
+        let packet = EncyclopediaDeckBuffUsePacket { option_index: 100, value: 7 }.encode();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ENCYCLOPEDIA_DECK_BUFF);
+        assert_eq!(raw.payload, [100, 0, 7, 0, 0, 0]);
+    }
+
+    #[test]
+    fn deck_buff_request_reads_u2_option_index() {
+        let mut writer = PacketWriter::new(game::ENCYCLOPEDIA_DECK_BUFF);
+        writer.write_u16(3);
+        let raw = PacketReader::from_frame(&writer.finalize()).expect("frame should decode");
+        let request = GameRequest::try_from(raw).expect("request should decode");
+        assert!(matches!(request, GameRequest::EncyclopediaDeckBuff { deck_idx: 3 }));
     }
 
     #[test]

@@ -8140,7 +8140,7 @@ impl GameApplication {
     fn handle_encyclopedia_deck_buff(
         &self,
         session: &GameSession,
-        deck_idx: u32,
+        deck_idx: u16,
     ) -> Result<Vec<Vec<u8>>, GameFlowError> {
         let character_id = session.character_id.ok_or(GameFlowError::Unauthenticated)?;
         let character = self
@@ -8159,13 +8159,13 @@ impl GameApplication {
             .update_deck_buff(character_id, new_buff)
             .map_err(|error| GameFlowError::Storage(error.to_string()))?;
 
-        // The legacy server computes HP/AS deltas from the deck buff asset; without
-        // the asset table we send neutral values (1.0× multiplier) so the modern
-        // client UI clears the deck-buff dialog without crashing.
+        // Modern GS2C 3237 carries {u2 option_index; u4 value} (parser 0xDB3700,
+        // event 161). The deck-buff asset table that defines `value` is not
+        // materialized server-side yet; the index is echoed from the request.
         Ok(vec![
             EncyclopediaDeckBuffUsePacket {
-                deck_buff_hp: 0,
-                deck_buff_as: 0,
+                option_index: deck_idx,
+                value: 0,
             }
             .encode(),
         ])
