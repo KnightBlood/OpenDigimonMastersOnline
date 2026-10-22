@@ -1346,6 +1346,38 @@ impl PinochiGetInfoPacket {
     }
 }
 
+/// `Party::Exp` — opcode 2311: three i64 amounts, one u4 gap, another three
+/// i64 amounts, one final u4 and a modern label string. The client hands the
+/// numeric block to event 196; the label string is consumed and discarded.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PartyExpPacket {
+    pub first: i64,  // unresolved
+    pub second: i64, // unresolved
+    pub third: i64,  // unresolved
+    pub first_lo: u32,   // unresolved
+    pub fifth: i64,  // unresolved
+    pub sixth: i64,  // unresolved
+    pub seventh: i64, // unresolved
+    pub second_lo: u32,  // unresolved
+    pub label: String,   // consumed, unused by the event
+}
+
+impl PartyExpPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::PARTY_EXP);
+        writer.write_i64(self.first);
+        writer.write_i64(self.second);
+        writer.write_i64(self.third);
+        writer.write_u32(self.first_lo);
+        writer.write_i64(self.fifth);
+        writer.write_i64(self.sixth);
+        writer.write_i64(self.seventh);
+        writer.write_u32(self.second_lo);
+        writer.write_modern_utf8_string(&self.label);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7579,6 +7611,31 @@ mod tests {
         assert_eq!(raw.payload.len(), 44);
         assert_eq!(&raw.payload[..4], &100u32.to_le_bytes());
         assert_eq!(&raw.payload[40..44], &110u32.to_le_bytes());
+    }
+
+    #[test]
+    fn party_exp_writes_numeric_block_plus_label() {
+        let packet = PartyExpPacket {
+            first: 10,
+            second: 20,
+            third: 30,
+            first_lo: 4,
+            fifth: 50,
+            sixth: 60,
+            seventh: 70,
+            second_lo: 8,
+            label: "exp".to_string(),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::PARTY_EXP);
+        assert_eq!(raw.payload.len(), 56 + 2 + 3);
+        assert_eq!(&raw.payload[..8], &10i64.to_le_bytes());
+        assert_eq!(&raw.payload[24..28], &4u32.to_le_bytes());
+        assert_eq!(&raw.payload[52..56], &8u32.to_le_bytes());
+        assert_eq!(&raw.payload[56..58], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[58..], b"exp");
     }
 
     #[test]

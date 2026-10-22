@@ -215,6 +215,10 @@ pub mod game {
     // through the 0x3138 slots and the fallback path pings ev42
     // (44996 0xDB47E0, raw asm).
     pub const EVENT_PINOCHI_GET_INFO: i16 = 3126;
+    // Party exp split {i64 x3; r4; i64 x3; r4; s2 label} -> ev196; the label
+    // string is consumed but never reaches the event struct
+    // (44996 0xD9D670, raw asm).
+    pub const PARTY_EXP: i16 = 2311;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
