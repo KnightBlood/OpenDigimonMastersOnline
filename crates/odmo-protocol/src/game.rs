@@ -1586,6 +1586,31 @@ impl MasterUserInfoPacket {
     }
 }
 
+/// `Master::MachineRun` — opcode 9981: {u4 count; count x s2 name}. Count 0
+/// pops misc id 39 (wrong input data) and names that miss the item table
+/// pop misc id 38 (wrong recv data) through event 42; valid names are
+/// rolled into the rare-machine census of `Cheat_RareMachine.txt`, which
+/// is then opened in notepad.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterMachineRunPacket {
+    pub names: Vec<String>, // item names, count encoded on the wire
+}
+
+impl MasterMachineRunPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.names.len() <= u32::MAX as usize,
+            "machine names overflow u4"
+        );
+        let mut writer = PacketWriter::new(game::MASTER_MACHINE_RUN);
+        writer.write_u32(self.names.len() as u32);
+        for name in &self.names {
+            writer.write_modern_utf8_string(name);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8069,6 +8094,20 @@ mod tests {
         assert_eq!(&raw.payload[12..20], &4i64.to_le_bytes());
         assert_eq!(&raw.payload[20..24], &5u32.to_le_bytes());
         assert_eq!(raw.payload[24], 6);
+    }
+
+    #[test]
+    fn master_machine_run_writes_counted_names() {
+        let packet = MasterMachineRunPacket {
+            names: vec!["Ruler".to_string(), "Mon".to_string()],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_MACHINE_RUN);
+        assert_eq!(raw.payload.len(), 4 + 7 + 5);
+        assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
+        assert_eq!(raw.payload[4..6], [5, 0]);
     }
 
     #[test]

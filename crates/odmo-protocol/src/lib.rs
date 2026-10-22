@@ -54,7 +54,7 @@ pub use game::{
     PinochiItemDeletePacket, PinochiDeleteList, PinochiDeleteRow,
     MasterInsertItemToShopPacket, MasterUserListPacket, MasterUserRow,
     MasterCheatLevelPacket, GmCoolResetPacket, MasterChatBanUserPacket,
-    MasterInitSkillStatPacket, MasterUserInfoPacket,
+    MasterInitSkillStatPacket, MasterUserInfoPacket, MasterMachineRunPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

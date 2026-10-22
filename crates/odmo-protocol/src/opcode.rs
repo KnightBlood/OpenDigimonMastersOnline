@@ -262,6 +262,12 @@ pub mod game {
     // string fields feed the console info branches, each popping through
     // ev42 (44996 0xD8F3C0, raw asm; semantics unresolved).
     pub const MASTER_USER_INFO: i16 = 9920;
+    // Master rare-machine census {u4 count; count x s2 name}: count 0 pops
+    // misc id 39 (CHAT_RAREMACHINE_CHEAT_WRONG_INPUT_DATA) and names that
+    // miss the item table pop misc id 38 (WRONG_RECV_DATA) through ev42;
+    // hits are rolled into Cheat_RareMachine.txt and opened in notepad
+    // (44996 0xD91880, raw asm).
+    pub const MASTER_MACHINE_RUN: i16 = 9981;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
