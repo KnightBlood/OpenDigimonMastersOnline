@@ -301,6 +301,12 @@ pub mod game {
     // the 0x9CE2 buff text and pops the console line through ev42
     // (44996 0xD8E070, raw asm).
     pub const SKILL_MONSTER_BUFF: i16 = 1115;
+    // Skill monster skill-effect {u4 caster; u4 skill_id; u4 count; count x
+    // {u4 handler; u4 x; u4 y}}: the trailing reads exist only on the
+    // CMonsterTable row kind-18 branch, spawning the raid dot-damage circle
+    // per target; kind 19 stops the effect, other kinds pop the ev42 error
+    // line (44996 0xDC9840, raw asm).
+    pub const SKILL_MONSTER_SKILL_EFFECT: i16 = 1123;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

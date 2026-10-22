@@ -1753,6 +1753,45 @@ impl SkillMonsterBuffPacket {
     }
 }
 
+/// `Skill::MonsterSkillEffect` — opcode 1123: {u4 caster; u4 skill_id; u4
+/// count; count x {u4 handler; u4 x; u4 y}}. The trailing reads only exist
+/// on the CMonsterTable row kind-18 branch: each loop iteration resolves
+/// the target through the handler and spawns the raid dot-damage circle at
+/// the integer tile coordinates. Row kind 19 stops the effect; other kinds
+/// pop the event 42 error line.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SkillMonsterSkillTarget {
+    pub handler: u32,
+    pub x: u32, // integer tile coordinate, cast to f32 client-side
+    pub y: u32, // integer tile coordinate, cast to f32 client-side
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SkillMonsterSkillEffectPacket {
+    pub caster: u32,
+    pub skill_id: u32,
+    pub targets: Vec<SkillMonsterSkillTarget>, // kind-18 branch
+}
+
+impl SkillMonsterSkillEffectPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.targets.len() <= u32::MAX as usize,
+            "monster skill targets overflow u4"
+        );
+        let mut writer = PacketWriter::new(game::SKILL_MONSTER_SKILL_EFFECT);
+        writer.write_u32(self.caster);
+        writer.write_u32(self.skill_id);
+        writer.write_u32(self.targets.len() as u32);
+        for target in &self.targets {
+            writer.write_u32(target.handler);
+            writer.write_u32(target.x);
+            writer.write_u32(target.y);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8350,6 +8389,40 @@ mod tests {
         assert_eq!(&raw.payload[..4], &3u32.to_le_bytes());
         assert_eq!(&raw.payload[4..8], &1234u32.to_le_bytes());
         assert_eq!(&raw.payload[8..], &5u32.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_monster_skill_effect_writes_caster_skill_and_targets() {
+        let packet = SkillMonsterSkillEffectPacket {
+            caster: 9,
+            skill_id: 44,
+            targets: vec![
+                SkillMonsterSkillTarget {
+                    handler: 1,
+                    x: 10,
+                    y: 20,
+                },
+                SkillMonsterSkillTarget {
+                    handler: 2,
+                    x: 30,
+                    y: 40,
+                },
+            ],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_MONSTER_SKILL_EFFECT);
+        assert_eq!(raw.payload.len(), 12 + 24);
+        assert_eq!(&raw.payload[..4], &9u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &44u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[12..16], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[16..20], &10u32.to_le_bytes());
+        assert_eq!(&raw.payload[20..24], &20u32.to_le_bytes());
+        assert_eq!(&raw.payload[24..28], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[28..32], &30u32.to_le_bytes());
+        assert_eq!(&raw.payload[32..36], &40u32.to_le_bytes());
     }
 
     #[test]
