@@ -337,6 +337,11 @@ pub mod game {
     // 0x4E3D effect, open the timed-removal window filled with the two
     // kinds plus the code, and pop event 687 (44996 0xD9B8D0, raw asm).
     pub const ITEM_TIMEOUT: i16 = 3933;
+    // Item party-crop {u2 code; u4 param; u2 sub_out; u1 mode; s2 reason;
+    // u1 signed member count; count x {u1 kind; s2 name}}: each member row
+    // becomes a list node consumed by the delete-list handler, and event
+    // 197 pops the code afterwards (44996 0xD9CE20, raw asm).
+    pub const ITEM_PARTY_CROP: i16 = 3939;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

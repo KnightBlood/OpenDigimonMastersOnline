@@ -2007,6 +2007,47 @@ impl ItemTimeoutPacket {
     }
 }
 
+/// `Item::PartyCrop` — opcode 3939: {u2 code; u4 param; u2 sub_out; u1
+/// mode; s2 reason; u1 signed member count; count x {u1 kind; s2 name}}.
+/// Each member row becomes a list node consumed by the delete-list
+/// handler, and event 197 pops the code after the list settles.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ItemPartyCropMember {
+    pub kind: u8,
+    pub name: String, // modern utf8 string, u16 length prefix
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ItemPartyCropPacket {
+    pub code: u16,
+    pub param: u32,
+    pub sub_out: u16,
+    pub mode: u8,
+    pub reason: String, // modern utf8 string, u16 length prefix
+    pub members: Vec<ItemPartyCropMember>, // count is a signed u1
+}
+
+impl ItemPartyCropPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.members.len() <= i8::MAX as usize,
+            "party-crop members overflow s1"
+        );
+        let mut writer = PacketWriter::new(game::ITEM_PARTY_CROP);
+        writer.write_u16(self.code);
+        writer.write_u32(self.param);
+        writer.write_u16(self.sub_out);
+        writer.write_u8(self.mode);
+        writer.write_modern_utf8_string(&self.reason);
+        writer.write_u8(self.members.len() as u8);
+        for member in &self.members {
+            writer.write_u8(member.kind);
+            writer.write_modern_utf8_string(&member.name);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8785,6 +8826,37 @@ mod tests {
         assert_eq!(&raw.payload[1..3], &3000u16.to_le_bytes());
         assert_eq!(&raw.payload[3..7], &42u32.to_le_bytes());
         assert_eq!(raw.payload[7], 2);
+    }
+
+    #[test]
+    fn item_party_crop_writes_strings_and_member_list() {
+        let packet = ItemPartyCropPacket {
+            code: 7,
+            param: 99,
+            sub_out: 3,
+            mode: 1,
+            reason: "gone".into(),
+            members: vec![ItemPartyCropMember {
+                kind: 2,
+                name: "Tamer".into(),
+            }],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ITEM_PARTY_CROP);
+        // 2+4+2+1 + reason (2+4) + count 1 + member (1 + 2 + 5)
+        assert_eq!(raw.payload.len(), 9 + 6 + 1 + 8);
+        assert_eq!(&raw.payload[..2], &7u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], &99u32.to_le_bytes());
+        assert_eq!(&raw.payload[6..8], &3u16.to_le_bytes());
+        assert_eq!(raw.payload[8], 1);
+        assert_eq!(&raw.payload[9..11], &4u16.to_le_bytes());
+        assert_eq!(&raw.payload[11..15], b"gone");
+        assert_eq!(raw.payload[15], 1);
+        assert_eq!(raw.payload[16], 2);
+        assert_eq!(&raw.payload[17..19], &5u16.to_le_bytes());
+        assert_eq!(&raw.payload[19..], b"Tamer");
     }
 
     #[test]

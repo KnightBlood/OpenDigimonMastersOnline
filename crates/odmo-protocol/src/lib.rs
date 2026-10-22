@@ -62,6 +62,7 @@ pub use game::{
     SkillRangeAttacker, SkillRangeTarget, SkillRangeSkillDmgPacket,
     MasterConnCountGroup, MasterConnCountInfoPacket,
     ItemCapsuleRow, ItemCapsuleToItemPacket, ItemTimeoutPacket,
+    ItemPartyCropMember, ItemPartyCropPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
