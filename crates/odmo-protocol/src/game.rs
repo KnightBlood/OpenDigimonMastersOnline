@@ -1823,7 +1823,7 @@ pub struct PartyInvitePacket {
 impl PartyInvitePacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::PARTY_INVITE);
-        writer.write_string(&self.inviter_name);
+        writer.write_modern_utf8_string(&self.inviter_name);
         writer.finalize()
     }
 }
@@ -1838,7 +1838,7 @@ impl PartyInviteResultPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::PARTY_INVITE_RESPONSE);
         writer.write_i32(self.result_type);
-        writer.write_string(&self.target_name);
+        writer.write_modern_utf8_string(&self.target_name);
         writer.finalize()
     }
 }
@@ -2054,7 +2054,7 @@ impl PartyMemberDigimonChangePacket {
         let mut writer = PacketWriter::new(game::PARTY_MEMBER_DIGIMON_CHANGE);
         writer.write_u8(self.member_slot);
         writer.write_i32(self.digimon_type);
-        writer.write_string(&self.digimon_name);
+        writer.write_modern_utf8_string(&self.digimon_name);
         writer.write_u16(self.digimon_hp);
         writer.write_u16(self.digimon_max_hp);
         writer.write_u16(self.digimon_ds);
@@ -3181,16 +3181,19 @@ pub struct TamerChangeNamePacket {
     pub item_slot: i32,
     pub old_name: String,
     pub new_name: String,
+    pub note: String, // unresolved (third string slot; empty still writes the 2-byte prefix)
 }
 
 impl TamerChangeNamePacket {
     pub fn encode(&self) -> Vec<u8> {
+        // Modern wire: {u4 result; str old; str new; u4 item_slot; str note} -
+        // the legacy trailing status byte became a third string field.
         let mut writer = PacketWriter::new(game::TAMER_NAME_CHANGE);
         writer.write_i32(self.result);
-        writer.write_string(&self.old_name);
-        writer.write_string(&self.new_name);
+        writer.write_modern_utf8_string(&self.old_name);
+        writer.write_modern_utf8_string(&self.new_name);
         writer.write_i32(self.item_slot);
-        writer.write_u8(1);
+        writer.write_modern_utf8_string(&self.note);
         writer.finalize()
     }
 }
@@ -3643,9 +3646,9 @@ impl GuildHistoricPacket {
             writer.write_u8(entry.historic_type);
             writer.write_i32(entry.date_utc_seconds.min(i32::MAX as u32) as i32);
             writer.write_u8(entry.master_class);
-            writer.write_string(&entry.master_name);
+            writer.write_modern_utf8_string(&entry.master_name);
             writer.write_u8(entry.member_class);
-            writer.write_string(&entry.member_name);
+            writer.write_modern_utf8_string(&entry.member_name);
         }
         writer.write_u8(0);
         writer.finalize()
@@ -3677,9 +3680,9 @@ pub struct GuildCreateSuccessPacket {
 impl GuildCreateSuccessPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_CREATE);
-        writer.write_string(&self.leader_name);
+        writer.write_modern_utf8_string(&self.leader_name);
         writer.write_i32(self.item_slot);
-        writer.write_string(&self.guild_name);
+        writer.write_modern_utf8_string(&self.guild_name);
         writer.finalize()
     }
 }
@@ -3694,9 +3697,9 @@ pub struct GuildCreateFailPacket {
 impl GuildCreateFailPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_CREATE);
-        writer.write_string(&self.leader_name);
+        writer.write_modern_utf8_string(&self.leader_name);
         writer.write_i32(-1);
-        writer.write_string(&self.guild_name);
+        writer.write_modern_utf8_string(&self.guild_name);
         writer.finalize()
     }
 }
@@ -3710,7 +3713,7 @@ pub struct GuildDeletePacket {
 impl GuildDeletePacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_DELETE);
-        writer.write_string(&self.guild_name);
+        writer.write_modern_utf8_string(&self.guild_name);
         writer.finalize()
     }
 }
@@ -3726,9 +3729,9 @@ pub struct GuildInviteSuccessPacket {
 impl GuildInviteSuccessPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_INVITE);
-        writer.write_string(&self.target_name);
+        writer.write_modern_utf8_string(&self.target_name);
         writer.write_u32(self.guild_id);
-        writer.write_string(&self.guild_name);
+        writer.write_modern_utf8_string(&self.guild_name);
         writer.finalize()
     }
 }
@@ -3746,7 +3749,7 @@ impl GuildInviteFailPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_INVITE_FAIL);
         writer.write_i32(self.reason);
-        writer.write_string(&self.target_name);
+        writer.write_modern_utf8_string(&self.target_name);
         writer.finalize()
     }
 }
@@ -3768,11 +3771,11 @@ impl GuildInviteAcceptPacket {
         let mut writer = PacketWriter::new(game::GUILD_INVITE_RESPONSE_ACCEPT);
         writer.write_u8(self.authority);
         writer.write_u8(self.member_model);
-        writer.write_string(&self.character_name);
+        writer.write_modern_utf8_string(&self.character_name);
         writer.write_u8(self.level);
         writer.write_i16(self.map_id);
         writer.write_u8(self.channel);
-        writer.write_string(&self.guild_name);
+        writer.write_modern_utf8_string(&self.guild_name);
         writer.finalize()
     }
 }
@@ -3786,7 +3789,7 @@ pub struct GuildInviteDenyPacket {
 impl GuildInviteDenyPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_INVITE_DENY);
-        writer.write_string(&self.target_name);
+        writer.write_modern_utf8_string(&self.target_name);
         writer.finalize()
     }
 }
@@ -3800,7 +3803,7 @@ pub struct GuildMemberKickPacket {
 impl GuildMemberKickPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_KICK);
-        writer.write_string(&self.target_name);
+        writer.write_modern_utf8_string(&self.target_name);
         writer.finalize()
     }
 }
@@ -3814,7 +3817,7 @@ pub struct GuildMemberQuitPacket {
 impl GuildMemberQuitPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_LEAVE);
-        writer.write_string(&self.target_name);
+        writer.write_modern_utf8_string(&self.target_name);
         writer.finalize()
     }
 }
@@ -3828,7 +3831,7 @@ pub struct GuildNoticeUpdatePacket {
 impl GuildNoticeUpdatePacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_NOTICE);
-        writer.write_string(&self.notice);
+        writer.write_modern_utf8_string(&self.notice);
         writer.finalize()
     }
 }
@@ -3844,11 +3847,12 @@ pub struct GuildAuthorityUpdatePacket {
 
 impl GuildAuthorityUpdatePacket {
     pub fn encode(&self) -> Vec<u8> {
+        // Modern wire: {u1 class; str title; str duty} - no trailing byte, the
+        // final legacy u8 is absent from the read side.
         let mut writer = PacketWriter::new(game::GUILD_SET_TITLE);
         writer.write_u8(self.authority_class);
-        writer.write_string(&self.title);
-        writer.write_string(&self.duty);
-        writer.write_u8(0);
+        writer.write_modern_utf8_string(&self.title);
+        writer.write_modern_utf8_string(&self.duty);
         writer.finalize()
     }
 }
@@ -3874,17 +3878,17 @@ impl GuildPromotionDemotionPacket {
 /// `GuildMessage` (chat) — opcode 2114.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuildMessagePacket {
-    pub sender_handler: u32,
     pub sender_name: String,
     pub message: String,
 }
 
 impl GuildMessagePacket {
     pub fn encode(&self) -> Vec<u8> {
+        // Modern parser reads two strings only; the legacy leading handler
+        // u4 is no longer on the wire.
         let mut writer = PacketWriter::new(game::GUILD_MESSAGE);
-        writer.write_u32(self.sender_handler);
-        writer.write_string(&self.sender_name);
-        writer.write_string(&self.message);
+        writer.write_modern_utf8_string(&self.sender_name);
+        writer.write_modern_utf8_string(&self.message);
         writer.finalize()
     }
 }
@@ -4231,17 +4235,19 @@ impl SyncConditionPacket {
 pub struct MapSwapPacket {
     pub address: String,
     pub port: i32,
-    pub map_id: i16,
+    pub map_id: i32, // widened from i16 on the modern read side
     pub x: i32,
     pub y: i32,
 }
 
 impl MapSwapPacket {
     pub fn encode(&self) -> Vec<u8> {
+        // Modern wire: {str; u4 port; u4 map; u4 x; u4 y} - the legacy i16
+        // map field reads as a full u4 now.
         let mut writer = PacketWriter::new(game::WARP_GATE);
-        writer.write_string(&self.address);
+        writer.write_modern_utf8_string(&self.address);
         writer.write_i32(self.port);
-        writer.write_i16(self.map_id);
+        writer.write_i32(self.map_id);
         writer.write_i32(self.x);
         writer.write_i32(self.y);
         writer.finalize()
@@ -7011,7 +7017,10 @@ mod tests {
     }
 
     #[test]
-    fn party_invite_request_decodes_modern_client_payload() {
+    fn party_invite_request_decodes_fork_client_payload() {
+        // The fork client still sends the legacy string shape for party
+        // invites; the write side (2301 GS2C) is where the modern shape
+        // applies.
         let mut writer = PacketWriter::new(game::PARTY_INVITE);
         writer.write_string("Matt");
         let packet = writer.finalize();
@@ -7067,7 +7076,8 @@ mod tests {
     }
 
     #[test]
-    fn party_invite_response_decodes_modern_client_payload() {
+    fn party_invite_response_decodes_fork_client_payload() {
+        // Fork client C2S shape (legacy string); see the invite-request note.
         let mut writer = PacketWriter::new(game::PARTY_INVITE_RESPONSE);
         writer.write_i32(1);
         writer.write_string("AdminTamer");
@@ -7080,6 +7090,80 @@ mod tests {
                 result_type: 1,
                 inviter_name: "AdminTamer".to_string(),
             }
+        );
+    }
+
+    #[test]
+    fn modern_string_notice_family_writes_updated_shapes() {
+        // 2301 party invite: single modern string.
+        let invite = PartyInvitePacket {
+            inviter_name: "Matt".into(),
+        }
+        .encode();
+        let invite_raw = PacketReader::from_frame(&invite).expect("frame should decode");
+        assert_eq!(invite_raw.payload, [4, 0, b'M', b'a', b't', b't']);
+
+        // 2114 guild message: two strings, no leading handler u4.
+        let message = GuildMessagePacket {
+            sender_name: "Tai".into(),
+            message: "hi".into(),
+        }
+        .encode();
+        let message_raw = PacketReader::from_frame(&message).expect("frame should decode");
+        assert_eq!(
+            message_raw.payload,
+            [
+                3, 0, b'T', b'a', b'i', // sender
+                2, 0, b'h', b'i',   // message
+            ]
+        );
+
+        // 1311 name change: third string replaces the legacy trailing flag.
+        let rename = TamerChangeNamePacket {
+            result: 1,
+            item_slot: -1,
+            old_name: "Aa".into(),
+            new_name: "Bb".into(),
+            note: String::new(),
+        }
+        .encode();
+        let rename_raw = PacketReader::from_frame(&rename).expect("frame should decode");
+        assert_eq!(
+            rename_raw.payload,
+            [
+                1, 0, 0, 0,          // result
+                2, 0, b'A', b'a',    // old
+                2, 0, b'B', b'b',    // new
+                0xFF, 0xFF, 0xFF, 0xFF, // item slot
+                0, 0,                // empty note keeps its 2-byte prefix
+            ]
+        );
+
+        // 1709 map swap: map id widened to u4.
+        let swap = MapSwapPacket {
+            address: "127.0.0.1".into(),
+            port: 7607,
+            map_id: 9,
+            x: 100,
+            y: 200,
+        }
+        .encode();
+        let swap_raw = PacketReader::from_frame(&swap).expect("frame should decode");
+        let swap_body = &swap_raw.payload;
+        assert_eq!(&swap_body[..7], &[9, 0, b'1', b'2', b'7', b'.', b'0']);
+        assert_eq!(swap_body.len(), 2 + 9 + 4 * 4);
+
+        // 2129 guild set title: no trailing byte after the two strings.
+        let title = GuildAuthorityUpdatePacket {
+            authority_class: 2,
+            title: "T1".into(),
+            duty: "D".into(),
+        }
+        .encode();
+        let title_raw = PacketReader::from_frame(&title).expect("frame should decode");
+        assert_eq!(
+            title_raw.payload,
+            [2, 2, 0, b'T', b'1', 1, 0, b'D']
         );
     }
 

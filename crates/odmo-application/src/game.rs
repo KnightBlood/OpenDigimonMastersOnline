@@ -2090,7 +2090,7 @@ impl GameApplication {
                         MapSwapPacket {
                             address: self.game_server_address.clone(),
                             port: self.game_server_port,
-                            map_id: portal.destination_map_id,
+                            map_id: i32::from(portal.destination_map_id),
                             x: portal.destination_x,
                             y: portal.destination_y,
                         }
@@ -4547,7 +4547,7 @@ impl GameApplication {
             let packet = MapSwapPacket {
                 address: self.game_server_address.clone(),
                 port: 7607,
-                map_id: summoner.map_id,
+                map_id: i32::from(summoner.map_id),
                 x: summoner.x,
                 y: summoner.y,
             }
@@ -5674,6 +5674,7 @@ impl GameApplication {
                     item_slot: -1,
                     old_name: character.name.clone(),
                     new_name: trimmed.to_string(),
+                    note: String::new(),
                 }
                 .encode(),
             ]);
@@ -5693,6 +5694,7 @@ impl GameApplication {
                     item_slot: -1,
                     old_name: character.name.clone(),
                     new_name: trimmed.to_string(),
+                    note: String::new(),
                 }
                 .encode(),
             ]);
@@ -5708,6 +5710,7 @@ impl GameApplication {
             item_slot: -1,
             old_name: character.name,
             new_name: new_name_string,
+            note: String::new(),
         }
         .encode();
 
@@ -9412,7 +9415,6 @@ impl GameApplication {
         };
 
         let packet = GuildMessagePacket {
-            sender_handler: character.general_handler,
             sender_name: character.name.clone(),
             message,
         }
