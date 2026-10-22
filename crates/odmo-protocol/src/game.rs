@@ -2254,6 +2254,173 @@ impl EventMastersMatchingPacket {
     }
 }
 
+/// `Buff::CreateBuff` — opcode 4000: {u4 target; u2 a; u2 b; u4 c; u4 d}.
+/// The client resolves the target by entity kind and hands the five
+/// fields to the slot creator; field semantics beyond target are
+/// unresolved.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffCreatePacket {
+    pub target: u32,
+    pub a: u16, // resolved kind 11/12 buff slot
+    pub b: u16,
+    pub c: u32,
+    pub d: u32,
+}
+
+impl BuffCreatePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_CREATE);
+        writer.write_u32(self.target);
+        writer.write_u16(self.a);
+        writer.write_u16(self.b);
+        writer.write_u32(self.c);
+        writer.write_u32(self.d);
+        writer.finalize()
+    }
+}
+
+/// `Buff::BuffChange` — opcode 4001: {u4 target; u2 a; u2 b; u2 c; u4 d;
+/// u4 e}. Third u2 and second u4 extend the create envelope.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffChangePacket {
+    pub target: u32,
+    pub a: u16,
+    pub b: u16,
+    pub c: u16,
+    pub d: u32,
+    pub e: u32,
+}
+
+impl BuffChangePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_BUFF_CHANGE);
+        writer.write_u32(self.target);
+        writer.write_u16(self.a);
+        writer.write_u16(self.b);
+        writer.write_u16(self.c);
+        writer.write_u32(self.d);
+        writer.write_u32(self.e);
+        writer.finalize()
+    }
+}
+
+/// `Buff::BuffClear` — opcode 4002: {u4 target; u2 count; count x u2} —
+/// each u2 clears one buff id from the resolved entity's buff list.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffClearPacket {
+    pub target: u32,
+    pub buffs: Vec<u16>,
+}
+
+impl BuffClearPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_BUFF_CLEAR);
+        writer.write_u32(self.target);
+        writer.write_u16(self.buffs.len() as u16);
+        for buff in &self.buffs {
+            writer.write_u16(*buff);
+        }
+        writer.finalize()
+    }
+}
+
+/// `Buff::ReturnFail` — opcode 4009: {u1 kind; u2 code; u4 upgrade when
+/// kind==1}; a kind of 1 routes the u4 parameter onward, kind 2 stops
+/// reading, and codes 1/3/4 pop the inert dialog flags.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffReturnFailPacket {
+    pub kind: u8,
+    pub code: u16,
+    pub upgrade: Option<u32>,
+}
+
+impl BuffReturnFailPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_RETURN_FAIL);
+        writer.write_u8(self.kind);
+        writer.write_u16(self.code);
+        if let Some(value) = self.upgrade {
+            writer.write_u32(value);
+        }
+        writer.finalize()
+    }
+}
+
+/// `Buff::AbnormalDamage` — opcode 4011: {u4 handler; u4 actor; u2
+/// target; u1 flag; u4 pair; u1 kind}. All five cursor reads happen up
+/// front; the remaining logic applies the abnormal damage without further
+/// wire access.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffAbnormalDamagePacket {
+    pub handler: u32,
+    pub actor: u32,
+    pub target: u16,
+    pub flag: u8,
+    pub pair: [u32; 2],
+    pub kind: u8,
+}
+
+impl BuffAbnormalDamagePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_ABNORMAL_DAMAGE);
+        writer.write_u32(self.handler);
+        writer.write_u32(self.actor);
+        writer.write_u16(self.target);
+        writer.write_u8(self.flag);
+        for value in &self.pair {
+            writer.write_u32(*value);
+        }
+        writer.write_u8(self.kind);
+        writer.finalize()
+    }
+}
+
+/// `Buff::BuffSkill` — opcode 4012: {u4 target; u2 slot; u1 flag; u4 a;
+/// u4 b}. The client RTTI-casts the target to the tamer type and applies
+/// the buff skill entry through the buff slot.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffBuffSkillPacket {
+    pub target: u32,
+    pub slot: u16,
+    pub flag: u8,
+    pub a: u32,
+    pub b: u32,
+}
+
+impl BuffBuffSkillPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_BUFF_SKILL);
+        writer.write_u32(self.target);
+        writer.write_u16(self.slot);
+        writer.write_u8(self.flag);
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.finalize()
+    }
+}
+
+/// `Buff::Stun` — opcode 4013: {u4 actor; u4 skill; u2 duration; u4
+/// value}. The stun table row (kind 0xF) applies through the buff slot
+/// and the failure path pops event 42 carrying message 3391.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BuffStunPacket {
+    pub actor: u32,
+    pub skill: u32,
+    pub duration: u16,
+    pub value: u32,
+}
+
+impl BuffStunPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUFF_STUN);
+        writer.write_u32(self.actor);
+        writer.write_u32(self.skill);
+        writer.write_u16(self.duration);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9242,6 +9409,114 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::EVENT_MASTERS_MATCHING);
         assert!(raw.payload.is_empty());
+    }
+
+    #[test]
+    fn buff_family_writes_fixed_envelopes() {
+        let create = BuffCreatePacket {
+            target: 11,
+            a: 1,
+            b: 2,
+            c: 3,
+            d: 4,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&create).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_CREATE);
+        assert_eq!(raw.payload.len(), 16);
+        assert_eq!(&raw.payload[..4], &11u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..8], &2u16.to_le_bytes());
+
+        let change = BuffChangePacket {
+            target: 12,
+            a: 1,
+            b: 2,
+            c: 3,
+            d: 4,
+            e: 5,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&change).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_BUFF_CHANGE);
+        assert_eq!(raw.payload.len(), 18);
+        assert_eq!(raw.payload[4], 1);
+        assert_eq!(raw.payload[6], 2);
+        assert_eq!(raw.payload[8], 3);
+
+        let clear = BuffClearPacket {
+            target: 13,
+            buffs: vec![1, 2, 3],
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&clear).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_BUFF_CLEAR);
+        assert_eq!(raw.payload, {
+            let mut bytes = 13u32.to_le_bytes().to_vec();
+            bytes.extend(3u16.to_le_bytes());
+            bytes.extend(1u16.to_le_bytes());
+            bytes.extend(2u16.to_le_bytes());
+            bytes.extend(3u16.to_le_bytes());
+            bytes
+        });
+
+        let fail = BuffReturnFailPacket {
+            kind: 1,
+            code: 7,
+            upgrade: Some(42),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&fail).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_RETURN_FAIL);
+        assert_eq!(raw.payload.len(), 7);
+        assert_eq!(raw.payload[0], 1);
+        assert_eq!(&raw.payload[1..3], &7u16.to_le_bytes());
+        assert_eq!(&raw.payload[3..7], &42u32.to_le_bytes());
+
+        let damage = BuffAbnormalDamagePacket {
+            handler: 1,
+            actor: 2,
+            target: 3,
+            flag: 4,
+            pair: [5, 6],
+            kind: 7,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&damage).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_ABNORMAL_DAMAGE);
+        assert_eq!(raw.payload.len(), 20);
+        assert_eq!(&raw.payload[8..10], &3u16.to_le_bytes());
+        assert_eq!(raw.payload[10], 4);
+        assert_eq!(&raw.payload[11..15], &5u32.to_le_bytes());
+        assert_eq!(&raw.payload[15..19], &6u32.to_le_bytes());
+        assert_eq!(raw.payload[19], 7);
+
+        let skill = BuffBuffSkillPacket {
+            target: 1,
+            slot: 2,
+            flag: 3,
+            a: 4,
+            b: 5,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&skill).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_BUFF_SKILL);
+        assert_eq!(raw.payload.len(), 15);
+        assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
+        assert_eq!(raw.payload[6], 3);
+
+        let stun = BuffStunPacket {
+            actor: 1,
+            skill: 2,
+            duration: 3,
+            value: 4,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&stun).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::BUFF_STUN);
+        assert_eq!(raw.payload.len(), 14);
+        assert_eq!(&raw.payload[8..10], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[10..14], &4u32.to_le_bytes());
     }
 
     #[test]

@@ -465,6 +465,21 @@ pub mod game {
     pub const QUEST_GOAL_UPDATE: i16 = 11001;
     pub const QUEST_DAILY_UPDATE: i16 = 11006;
     pub const DIE_CONFIRM: i16 = 1022;
+    // Buff family (44996 0xD8D7xx/0xDCxxxx): fixed dispatch envelopes on
+    // resolved target entities. CreateBuff {u4 target; u2 a; u2 b; u4 c;
+    // u4 d}; BuffChange adds a third u2 and a second u4; BuffClear carries
+    // {u4 target; u2 count; count x u2}; ReturnFail is {u1 kind; u2 code;
+    // u4 upgrade when kind==1}; AbnormalDamage is a 20-byte envelope
+    // {u4 handler; u4 actor; u2 target; u1 flag; u4 pair; u1 kind};
+    // BuffSkill is {u4 target; u2 slot; u1 flag; u4 a; u4 b}; Stun is
+    // {u4 actor; u4 skill; u2 duration; u4 value}.
+    pub const BUFF_CREATE: i16 = 4000;
+    pub const BUFF_BUFF_CHANGE: i16 = 4001;
+    pub const BUFF_BUFF_CLEAR: i16 = 4002;
+    pub const BUFF_RETURN_FAIL: i16 = 4009;
+    pub const BUFF_ABNORMAL_DAMAGE: i16 = 4011;
+    pub const BUFF_BUFF_SKILL: i16 = 4012;
+    pub const BUFF_STUN: i16 = 4013;
     pub const REMOVE_BUFF: i16 = 4005;
     pub const DAMAGE_SKIN_CHANGE: i16 = 3153;
     pub const SEAL_OPEN: i16 = 3971;
