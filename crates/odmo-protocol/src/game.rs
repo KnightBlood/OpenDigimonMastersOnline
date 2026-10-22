@@ -1914,6 +1914,42 @@ impl SkillRangeSkillDmgPacket {
     }
 }
 
+/// `Master::ConnCountInfo` — opcode 9938: {u2 group_count; group_count x
+/// chain of (u1 code; u2 count) closed by a lone u1 0xFF}. The chain is a
+/// sequence of counted segments: the first code opens it, each following
+/// count is reported with the "%04d - %02d : %03d" line through misc id
+/// 3334 and event 42, and the terminator code reads back without a count.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterConnCountGroup {
+    pub opens: u8,                            // first code read
+    pub entries: Vec<(u16, u8)>,              // (count, following code)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterConnCountInfoPacket {
+    pub groups: Vec<MasterConnCountGroup>,
+}
+
+impl MasterConnCountInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.groups.len() <= u16::MAX as usize,
+            "conn-count groups overflow u2"
+        );
+        let mut writer = PacketWriter::new(game::MASTER_CONN_COUNT_INFO);
+        writer.write_u16(self.groups.len() as u16);
+        for group in &self.groups {
+            writer.write_u8(group.opens);
+            for (count, code) in &group.entries {
+                writer.write_u16(*count);
+                writer.write_u8(*code);
+            }
+            writer.write_u8(0xFF);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8609,6 +8645,37 @@ mod tests {
         assert_eq!(&raw.payload[62..64], &1u16.to_le_bytes());
         assert_eq!(&raw.payload[64..68], &5u32.to_le_bytes());
         assert_eq!(&raw.payload[68..], &[7u8; 40]);
+    }
+
+    #[test]
+    fn master_conn_count_info_writes_counted_chains() {
+        let packet = MasterConnCountInfoPacket {
+            groups: vec![
+                MasterConnCountGroup {
+                    opens: 0,
+                    entries: vec![(12, 1), (5, 0xFF)],
+                },
+                MasterConnCountGroup {
+                    opens: 2,
+                    entries: vec![],
+                },
+            ],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_CONN_COUNT_INFO);
+        // group count 2 + group1 (1 + 2*3 + 1) + group2 (1 + 1)
+        assert_eq!(raw.payload.len(), 2 + 8 + 2);
+        assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
+        assert_eq!(raw.payload[2], 0);
+        assert_eq!(&raw.payload[3..5], &12u16.to_le_bytes());
+        assert_eq!(raw.payload[5], 1);
+        assert_eq!(&raw.payload[6..8], &5u16.to_le_bytes());
+        assert_eq!(raw.payload[8], 0xFF);
+        assert_eq!(raw.payload[9], 0xFF);
+        assert_eq!(raw.payload[10], 2);
+        assert_eq!(raw.payload[11], 0xFF);
     }
 
     #[test]

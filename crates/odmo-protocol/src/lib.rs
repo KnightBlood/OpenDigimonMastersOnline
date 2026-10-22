@@ -60,6 +60,7 @@ pub use game::{
     SkillMonsterSkillTarget, SkillMonsterSkillEffectPacket,
     SkillAroundHit, SkillAroundSkillPacket,
     SkillRangeAttacker, SkillRangeTarget, SkillRangeSkillDmgPacket,
+    MasterConnCountGroup, MasterConnCountInfoPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
