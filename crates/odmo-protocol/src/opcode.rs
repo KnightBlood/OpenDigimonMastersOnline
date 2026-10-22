@@ -228,6 +228,10 @@ pub mod game {
     // console with the "(name) is not found" line on ev42
     // (44996 0xD8F990, raw asm).
     pub const MASTER_USER_INFO_NOT_FOUND: i16 = 9921;
+    // Master second-password reset {u2 code}: 0 resolves the misc table id 34
+    // (CHAT_SECOND_PASSWORD_RESET_SUCCESS) and 1 id 17 (CHAT_NOT_EXIST_ID),
+    // both popped as an ev42 console line (44996 0xD8F190, raw asm).
+    pub const MASTER_INIT_2ND_PASS: i16 = 9945;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

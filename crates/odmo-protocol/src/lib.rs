@@ -50,7 +50,7 @@ pub use game::{
     MasterConnPacket, MasterPayCashPacket, GmQuestPacket,
     GuildMemberLevelUpPacket, GuildChangeTNamePacket, GuildDeletedTamerPacket,
     GmHatchTryPacket, PinochiGetInfoPacket, PartyExpPacket, TamerEquipItemPacket,
-    MasterUserInfoNotFoundPacket,
+    MasterUserInfoNotFoundPacket, MasterInit2ndPassPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

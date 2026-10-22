@@ -1422,6 +1422,22 @@ impl MasterUserInfoNotFoundPacket {
     }
 }
 
+/// `Master::Init2ndPass` — opcode 9945: one u2 code. Code 0 resolves misc
+/// table id 34 (CHAT_SECOND_PASSWORD_RESET_SUCCESS) and code 1 id 17
+/// (CHAT_NOT_EXIST_ID); the resolved text pops as an event-42 console line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MasterInit2ndPassPacket {
+    pub code: u16, // 0 = reset success, 1 = id not found
+}
+
+impl MasterInit2ndPassPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_INIT_2ND_PASS);
+        writer.write_u16(self.code);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7710,6 +7726,15 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MASTER_USER_INFO_NOT_FOUND);
         assert_eq!(raw.payload, [3, 0, b'Z', b'e', b'd']);
+    }
+
+    #[test]
+    fn master_init_2nd_pass_writes_code() {
+        let packet = MasterInit2ndPassPacket { code: 1 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_INIT_2ND_PASS);
+        assert_eq!(raw.payload, [1, 0]);
     }
 
     #[test]
