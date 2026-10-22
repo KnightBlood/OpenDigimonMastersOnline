@@ -374,6 +374,11 @@ pub mod game {
     pub const MACRO_FAILURE: i16 = 1066;
     pub const MACRO_SUCCESS: i16 = 1067;
     pub const MACRO_RESULT: i16 = 1068;
+    // Experience-gain notice: five i64 quantity pairs plus two u4 fields, the
+    // fourth read being consumed as u16 and the last one feeding a float exp
+    // path; every quantity enters the same x100 fixed-point conversion
+    // (44996 registry 1018/0xDA6890).
+    pub const GAME_GET_EXP: i16 = 1018;
     // Message-all failure and incubator error share parser 0xD866F0: one u4
     // is consumed and dropped, no dispatch.
     pub const MSG_ALL_FAILURE: i16 = 1071;

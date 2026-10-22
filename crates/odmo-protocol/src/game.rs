@@ -3995,6 +3995,37 @@ impl DroppedSlotNoticePacket {
     }
 }
 
+/// `GetExp` notice — opcode 1018.
+/// Modern parser (0xDA6890) reads five i64 quantity pairs interleaved with
+/// two u4 fields: `{i64; i64; i64; u4; i64; i64; u4}` (48 bytes). All five
+/// pairs go through the same x100 fixed-point conversion; the first trailing
+/// u4 is consumed as u16 and the last feeds a float exp path. Individual
+/// pair meanings stay unattributed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameGetExpNoticePacket {
+    pub first: i64,    // unresolved
+    pub second: i64,   // unresolved
+    pub third: i64,    // unresolved
+    pub flag: u32,     // unresolved (read side uses u16)
+    pub fourth: i64,   // unresolved
+    pub fifth: i64,    // unresolved
+    pub exp_value: u32, // unresolved (feeds the float exp path)
+}
+
+impl GameGetExpNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_GET_EXP);
+        writer.write_i64(self.first);
+        writer.write_i64(self.second);
+        writer.write_i64(self.third);
+        writer.write_u32(self.flag);
+        writer.write_i64(self.fourth);
+        writer.write_i64(self.fifth);
+        writer.write_u32(self.exp_value);
+        writer.finalize()
+    }
+}
+
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
 /// Used by the per-rank authority change packets which all share the same payload shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5915,6 +5946,26 @@ mod tests {
         let dropped_raw = PacketReader::from_frame(&dropped).expect("frame should decode");
         assert_eq!(dropped_raw.packet_type, game::MSG_ALL_FAILURE);
         assert_eq!(dropped_raw.payload, [1, 0, 0, 0]);
+    }
+
+    #[test]
+    fn game_get_exp_notice_writes_five_pairs_between_two_u32() {
+        let packet = GameGetExpNoticePacket {
+            first: 1,
+            second: 2,
+            third: 3,
+            flag: 7,
+            fourth: 4,
+            fifth: 5,
+            exp_value: 88,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_GET_EXP);
+        assert_eq!(raw.payload.len(), 48);
+        assert_eq!(&raw.payload[24..28], &[7, 0, 0, 0]);
+        assert_eq!(&raw.payload[44..48], &[88, 0, 0, 0]);
     }
 
     #[test]

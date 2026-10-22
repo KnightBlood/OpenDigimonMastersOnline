@@ -35,7 +35,7 @@ pub use game::{
     BuddyChangeNamePacket, ItemScanNoticePacket, GiftStorageRetrievePacket,
     AdvertBossCountNoticePacket, AdvertBossDieNoticePacket, DigimonSkillLimitOpenPacket,
     MacroResultNoticePacket, MacroSuccessNoticePacket, DroppedSlotNoticePacket,
-    GuildAuthorityUpdatePacket,
+    GameGetExpNoticePacket, GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
     GuildInviteSuccessPacket, GuildMemberKickPacket, GuildMemberQuitPacket, GuildMessagePacket,
