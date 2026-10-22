@@ -369,6 +369,9 @@ pub mod game {
     // Master guild-skill reset with an empty payload: the parser performs
     // no cursor reads and only pings event 284 (44996 0xD91860).
     pub const MASTER_GM_GUILD_SKILL_RESET: i16 = 9990;
+    // Event masters-matching ping with an empty payload: no cursor reads,
+    // the parser fires event 572 carrying {3125, 0} (44996 0xDB2600).
+    pub const EVENT_MASTERS_MATCHING: i16 = 3125;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

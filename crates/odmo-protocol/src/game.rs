@@ -2243,6 +2243,17 @@ impl MasterGmGuildSkillResetPacket {
     }
 }
 
+/// `Event::MastersMatching` — opcode 3125: empty payload. The parser
+/// performs no cursor reads and fires event 572 carrying {3125, 0}.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EventMastersMatchingPacket;
+
+impl EventMastersMatchingPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::EVENT_MASTERS_MATCHING).finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9221,6 +9232,15 @@ mod tests {
 
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MASTER_GM_GUILD_SKILL_RESET);
+        assert!(raw.payload.is_empty());
+    }
+
+    #[test]
+    fn event_masters_matching_writes_empty_payload() {
+        let packet = EventMastersMatchingPacket.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::EVENT_MASTERS_MATCHING);
         assert!(raw.payload.is_empty());
     }
 

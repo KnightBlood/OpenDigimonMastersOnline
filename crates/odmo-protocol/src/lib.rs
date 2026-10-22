@@ -67,6 +67,7 @@ pub use game::{
     DigimonDataChangeRecord14, DigimonDataChangePayload, DigimonDataChangePacket,
     GameMacroQuestionAnswer, GameMacroQuestionPacket,
     MasterSetMoneyPacket, MasterGmGuildSkillResetPacket,
+    EventMastersMatchingPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
