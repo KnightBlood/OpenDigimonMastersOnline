@@ -3925,6 +3925,34 @@ impl AdvertBossDieNoticePacket {
     }
 }
 
+/// `DigimonSkillLimitOpen` notice — opcode 3245.
+/// Modern parser (0xDCA180): a nonzero first u4 short-circuits into a plain
+/// disable call; otherwise the client updates one digimon row (bounded index
+/// 19) with a 28-byte inline skill blob, validates the u4 skill index against
+/// a 200-entry skill table using the final u4, and pings event 477. Blob and
+/// flag meanings stay unattributed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DigimonSkillLimitOpenPacket {
+    pub state: u32,             // unresolved (0 = full update path)
+    pub digimon_index: u32,     // bounded to 19 by the read side
+    pub skill_blob: Vec<u8>,    // 28 inline bytes, row-shaped
+    pub skill_index: u32,       // bounded to 199 by the read side
+    pub expected_value: u32,    // compared against the table-row u16
+}
+
+impl DigimonSkillLimitOpenPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert_eq!(self.skill_blob.len(), 28, "skill blob is fixed-size on the wire");
+        let mut writer = PacketWriter::new(game::SKILL_LIMIT_OPEN);
+        writer.write_u32(self.state);
+        writer.write_u32(self.digimon_index);
+        writer.write_bytes(&self.skill_blob);
+        writer.write_u32(self.skill_index);
+        writer.write_u32(self.expected_value);
+        writer.finalize()
+    }
+}
+
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
 /// Used by the per-rank authority change packets which all share the same payload shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5803,6 +5831,25 @@ mod tests {
             die_raw.payload,
             [0x55, 0, 0, 0, 0, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn skill_limit_open_writes_row_index_blob_and_gate_pair() {
+        let packet = DigimonSkillLimitOpenPacket {
+            state: 0,
+            digimon_index: 3,
+            skill_blob: (0..28).collect::<Vec<u8>>(),
+            skill_index: 7,
+            expected_value: 1,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_LIMIT_OPEN);
+        assert_eq!(raw.payload.len(), 4 + 4 + 28 + 4 + 4);
+        assert_eq!(&raw.payload[4..8], &[3, 0, 0, 0]);
+        assert_eq!(&raw.payload[8..36], &(0..28).collect::<Vec<u8>>()[..]);
+        assert_eq!(&raw.payload[36..44], &[7, 0, 0, 0, 1, 0, 0, 0]);
     }
 
     #[test]

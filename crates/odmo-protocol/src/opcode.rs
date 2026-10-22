@@ -364,5 +364,9 @@ pub mod game {
     pub const TIME_CHARGE_RESULT: i16 = 16042;
     pub const WARP_GATE_DUNGEON: i16 = 4119;
     pub const SKILL_UPDATE_COOLDOWN: i16 = 3246;
+    // Skill-limit open notice {u4 flag; u4 digimon_row; 28-byte skill blob;
+    // u4 skill_index; u4 expected} — direct digimon-table mutation plus an
+    // empty event-477 ping (44996 registry 3245/0xDCA180).
+    pub const SKILL_LIMIT_OPEN: i16 = 3245;
     pub const FRIENDLY_INFO: i16 = 3129;
 }
