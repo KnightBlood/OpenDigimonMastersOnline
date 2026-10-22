@@ -1672,6 +1672,23 @@ impl SkillChipCoolTimePacket {
     }
 }
 
+/// `Skill::RemoveSkillChip` — opcode 1119: one u4 chip id. Erases the chip
+/// from the tamer skill icon list, zeroes its chip slots in the +0x74C7
+/// table, and stops the row effect when the matching CSkillTable row
+/// carries one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillRemoveChipPacket {
+    pub chip_id: u32,
+}
+
+impl SkillRemoveChipPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_REMOVE_SKILL_CHIP);
+        writer.write_u32(self.chip_id);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8209,6 +8226,15 @@ mod tests {
         assert_eq!(raw.payload.len(), 8);
         assert_eq!(&raw.payload[..4], &11u32.to_le_bytes());
         assert_eq!(&raw.payload[4..], &22u32.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_remove_chip_writes_chip_id() {
+        let packet = SkillRemoveChipPacket { chip_id: 3102 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_REMOVE_SKILL_CHIP);
+        assert_eq!(raw.payload, 3102u32.to_le_bytes());
     }
 
     #[test]

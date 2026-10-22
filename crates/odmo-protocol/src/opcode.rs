@@ -283,6 +283,11 @@ pub mod game {
     // second, both cooldowns re-anchored from the skill-table row
     // (44996 0xDC88A0, raw asm).
     pub const SKILL_CHIP_COOL_TIME: i16 = 1121;
+    // Skill remove chip {u4 chip_id}: erases the chip from the tamer skill
+    // icon list, zeroes its chip slots in the +0x74C7 table, and stops the
+    // row effect when the CSkillTable row carries one (44996 0xDC85E0,
+    // raw asm).
+    pub const SKILL_REMOVE_SKILL_CHIP: i16 = 1119;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
