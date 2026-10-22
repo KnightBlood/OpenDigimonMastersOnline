@@ -1259,6 +1259,53 @@ impl GmQuestPacket {
     }
 }
 
+/// Guild name-flow notices. `MemberLevelUp` — opcode 2122 consumes one dead
+/// u8 then a modern string, popped to event 268; `ChangeTName` — opcode 2123
+/// reads two modern strings and pops event 275 with the first; `DeletedTamer`
+/// — opcode 2124 reads one modern string and pops event 274.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GuildMemberLevelUpPacket {
+    pub reserved: u8, // consumed and unused
+    pub name: String, // unresolved (event 268 payload)
+}
+
+impl GuildMemberLevelUpPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GUILD_MEMBER_LEVEL_UP);
+        writer.write_u8(self.reserved);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GuildChangeTNamePacket {
+    pub name: String, // popped via event 275
+    pub title: String,
+}
+
+impl GuildChangeTNamePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GUILD_CHANGE_TNAME);
+        writer.write_modern_utf8_string(&self.name);
+        writer.write_modern_utf8_string(&self.title);
+        writer.finalize()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GuildDeletedTamerPacket {
+    pub name: String, // popped via event 274
+}
+
+impl GuildDeletedTamerPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GUILD_DELETED_TAMER);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7432,6 +7479,35 @@ mod tests {
         assert_eq!(quest_raw.packet_type, game::MASTER_GM_QUEST);
         assert_eq!(quest_raw.payload.len(), 0x598);
         assert!(quest_raw.payload.iter().all(|byte| *byte == 7));
+    }
+
+    #[test]
+    fn guild_name_notices_fill_expected_bodies() {
+        let member = GuildMemberLevelUpPacket {
+            reserved: 0,
+            name: "Tamer".to_string(),
+        }
+        .encode();
+        let member_raw = PacketReader::from_frame(&member).expect("frame should decode");
+        assert_eq!(member_raw.packet_type, game::GUILD_MEMBER_LEVEL_UP);
+        assert_eq!(member_raw.payload, [0, 5, 0, b'T', b'a', b'm', b'e', b'r']);
+
+        let rename = GuildChangeTNamePacket {
+            name: "Ann".to_string(),
+            title: "Lord".to_string(),
+        }
+        .encode();
+        let rename_raw = PacketReader::from_frame(&rename).expect("frame should decode");
+        assert_eq!(rename_raw.packet_type, game::GUILD_CHANGE_TNAME);
+        assert_eq!(
+            rename_raw.payload[..7].to_vec(),
+            [3, 0, b'A', b'n', b'n', 4, 0].to_vec()
+        );
+
+        let deleted = GuildDeletedTamerPacket { name: "Bo".to_string() }.encode();
+        let deleted_raw = PacketReader::from_frame(&deleted).expect("frame should decode");
+        assert_eq!(deleted_raw.packet_type, game::GUILD_DELETED_TAMER);
+        assert_eq!(deleted_raw.payload, [2, 0, b'B', b'o']);
     }
 
     #[test]

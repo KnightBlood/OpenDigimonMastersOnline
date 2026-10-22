@@ -48,6 +48,7 @@ pub use game::{
     PinochiVotePacket, PinochiVoteRow, StoreSummonUsePacket, StoreSummonRow,
     SkillErrorPacket, EventActivePacket, TamerSkillSuccessPacket, PartnerScalePacket,
     MasterConnPacket, MasterPayCashPacket, GmQuestPacket,
+    GuildMemberLevelUpPacket, GuildChangeTNamePacket, GuildDeletedTamerPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

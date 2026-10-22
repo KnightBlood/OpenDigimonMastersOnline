@@ -199,6 +199,13 @@ pub mod game {
     pub const MASTER_CONN_COUNT: i16 = 9963;
     pub const MASTER_PAY_CASH: i16 = 9964;
     pub const MASTER_GM_QUEST: i16 = 9972;
+    // Guild name-flow notices: 2122 member level-up {u8 dead; s2 string} ->
+    // ev268 with the string; 2123 tamer-name change {s2; s2} -> ev275 with
+    // the first string; 2124 deleted tamer {s2} -> ev274
+    // (44996 0xD93790 / 0xD94080 / 0xD93FE0, raw asm).
+    pub const GUILD_MEMBER_LEVEL_UP: i16 = 2122;
+    pub const GUILD_CHANGE_TNAME: i16 = 2123;
+    pub const GUILD_DELETED_TAMER: i16 = 2124;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
