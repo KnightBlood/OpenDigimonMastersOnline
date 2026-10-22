@@ -288,6 +288,10 @@ pub mod game {
     // row effect when the CSkillTable row carries one (44996 0xDC85E0,
     // raw asm).
     pub const SKILL_REMOVE_SKILL_CHIP: i16 = 1119;
+    // Skill add chip {u4 slot; u4 chip; u4 item_id}: anchors the entity,
+    // registers the chip in the chip table, feeds the buff particle row
+    // (Buff %s.nif) and pops the console line (44996 0xDC8140, raw asm).
+    pub const SKILL_ADD_SKILL_CHIP: i16 = 1118;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

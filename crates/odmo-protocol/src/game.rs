@@ -1689,6 +1689,27 @@ impl SkillRemoveChipPacket {
     }
 }
 
+/// `Skill::AddSkillChip` — opcode 1118: {u4 entity_slot; u4 chip_id;
+/// u4 item_id}. Anchors the entity through the first slot, registers the
+/// chip id in the chip table, feeds its item-table row into the buff
+/// particle load, and pops the console line through the 477 event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SkillAddChipPacket {
+    pub entity_slot: u32,
+    pub chip_id: u32,
+    pub item_id: u32,
+}
+
+impl SkillAddChipPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SKILL_ADD_SKILL_CHIP);
+        writer.write_u32(self.entity_slot);
+        writer.write_u32(self.chip_id);
+        writer.write_u32(self.item_id);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8235,6 +8256,23 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::SKILL_REMOVE_SKILL_CHIP);
         assert_eq!(raw.payload, 3102u32.to_le_bytes());
+    }
+
+    #[test]
+    fn skill_add_chip_writes_slot_chip_and_item() {
+        let packet = SkillAddChipPacket {
+            entity_slot: 4,
+            chip_id: 3102,
+            item_id: 5000,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SKILL_ADD_SKILL_CHIP);
+        assert_eq!(raw.payload.len(), 12);
+        assert_eq!(&raw.payload[0..4], &4u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &3102u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..], &5000u32.to_le_bytes());
     }
 
     #[test]
