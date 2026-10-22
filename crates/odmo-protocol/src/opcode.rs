@@ -268,6 +268,12 @@ pub mod game {
     // hits are rolled into Cheat_RareMachine.txt and opened in notepad
     // (44996 0xD91880, raw asm).
     pub const MASTER_MACHINE_RUN: i16 = 9981;
+    // Master item-rank census {u2 tier; u4 count; count x s2 name}: tier 0
+    // pops misc id 36 (CHAT_ITEMRANK_CHEAT_WRONG_INPUT_DATA) and names that
+    // miss the item table pop misc id 33 (CHAT_CHEAT_MESSAGE_ITEMRANK_ERROR)
+    // through ev42; hits roll into Cheat_ItemRank.txt + notepad
+    // (44996 0xD91FC0, raw asm).
+    pub const MASTER_RANK_ITEM_RUN: i16 = 9982;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

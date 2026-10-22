@@ -1611,6 +1611,32 @@ impl MasterMachineRunPacket {
     }
 }
 
+/// `Master::RankItemRun` — opcode 9982: {u2 tier; u4 count; count x s2
+/// name}. Tier 0 pops misc id 36 (wrong input data) and names that miss the
+/// item table pop misc id 33 (item-rank error) through event 42; valid
+/// names roll into the `Cheat_ItemRank.txt` census, opened in notepad.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterRankItemRunPacket {
+    pub tier: u16, // unresolved rank tier selector
+    pub names: Vec<String>,
+}
+
+impl MasterRankItemRunPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(
+            self.names.len() <= u32::MAX as usize,
+            "rank names overflow u4"
+        );
+        let mut writer = PacketWriter::new(game::MASTER_RANK_ITEM_RUN);
+        writer.write_u16(self.tier);
+        writer.write_u32(self.names.len() as u32);
+        for name in &self.names {
+            writer.write_modern_utf8_string(name);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -8108,6 +8134,22 @@ mod tests {
         assert_eq!(raw.payload.len(), 4 + 7 + 5);
         assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
         assert_eq!(raw.payload[4..6], [5, 0]);
+    }
+
+    #[test]
+    fn master_rank_item_run_writes_tier_count_and_names() {
+        let packet = MasterRankItemRunPacket {
+            tier: 2,
+            names: vec!["Mon".to_string()],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_RANK_ITEM_RUN);
+        assert_eq!(raw.payload.len(), 2 + 4 + 2 + 3);
+        assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], &1u32.to_le_bytes());
+        assert_eq!(raw.payload[6..8], [3, 0]);
     }
 
     #[test]
