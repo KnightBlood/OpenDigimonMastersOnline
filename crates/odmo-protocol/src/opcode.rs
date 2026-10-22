@@ -249,6 +249,11 @@ pub mod game {
     // modifier of slot i+1 across the tamer and partner skill icon lists;
     // the tail pings ev42 through a static text (44996 0xD91460, raw asm).
     pub const MASTER_COOL_RESET: i16 = 9975;
+    // Master chat ban {u4 duration; s2 name}: 0 resolves misc id 31
+    // (CHAT_UNLIMIT_SERVER_BAN_MESSAGE), other values resolve id 29
+    // (CHAT_LIMIT_SERVER_BAN_MESSAGE) with the duration split into hours
+    // through the #Hour# template (44996 0xD90200, raw asm).
+    pub const MASTER_CHAT_BAN_USER: i16 = 9983;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

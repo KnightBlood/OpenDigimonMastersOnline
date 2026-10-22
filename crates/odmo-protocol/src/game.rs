@@ -1515,6 +1515,25 @@ impl GmCoolResetPacket {
     }
 }
 
+/// `Master::ChatBanUser` — opcode 9983: {u4 duration; s2 name}. Duration 0
+/// resolves misc id 31 (unlimited server ban); any other value resolves id
+/// 29 (limited server ban) with the duration split into hours through the
+/// #Hour# message template, both popped through event 42.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MasterChatBanUserPacket {
+    pub duration: u32, // ban seconds; 0 = unlimited
+    pub name: String,
+}
+
+impl MasterChatBanUserPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_CHAT_BAN_USER);
+        writer.write_u32(self.duration);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -7939,6 +7958,21 @@ mod tests {
         assert_eq!(raw.payload.len(), 102 * 4);
         assert_eq!(&raw.payload[..4], &5u32.to_le_bytes());
         assert_eq!(&raw.payload[404..408], &9u32.to_le_bytes());
+    }
+
+    #[test]
+    fn master_chat_ban_user_writes_duration_and_name() {
+        let packet = MasterChatBanUserPacket {
+            duration: 7200,
+            name: "Zed".to_string(),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_CHAT_BAN_USER);
+        assert_eq!(raw.payload.len(), 4 + 2 + 3);
+        assert_eq!(&raw.payload[..4], &7200u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..], [3, 0, b'Z', b'e', b'd']);
     }
 
     #[test]
