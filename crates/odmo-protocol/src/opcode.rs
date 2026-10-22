@@ -219,6 +219,11 @@ pub mod game {
     // string is consumed but never reaches the event struct
     // (44996 0xD9D670, raw asm).
     pub const PARTY_EXP: i16 = 2311;
+    // Equip flow {u2 handler; u1 kind; r4 x3; u1 dead; u1}: kind 5 runs the
+    // equip slot push through the entity slot and kind 10 swaps the digimon
+    // aura (item-table row kind 31 with the T_Aura visual pair)
+    // (44996 0xDD03E0, raw asm).
+    pub const TAMER_EQUIP_ITEM: i16 = 1310;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

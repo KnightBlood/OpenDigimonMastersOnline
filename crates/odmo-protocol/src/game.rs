@@ -1378,6 +1378,35 @@ impl PartyExpPacket {
     }
 }
 
+/// `EquipItem` — opcode 1310: {u2 handler; u1 kind; u4 x3; u8 dead; u8}.
+/// Kind 5 pushes the equip record through the resolved entity slot; kind 10
+/// swaps the partner aura, gating on item-table row kind 31 with the aura
+/// visuals and the level-up jingle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TamerEquipItemPacket {
+    pub handler: u16, // u2 container key
+    pub kind: u8,     // 5 equip / 10 aura override
+    pub first: u32,   // unresolved
+    pub second: u32,  // unresolved
+    pub third: u32,   // unresolved
+    pub filler: u8,   // consumed and unused
+    pub tail: u8,     // unresolved
+}
+
+impl TamerEquipItemPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::TAMER_EQUIP_ITEM);
+        writer.write_u16(self.handler);
+        writer.write_u8(self.kind);
+        writer.write_u32(self.first);
+        writer.write_u32(self.second);
+        writer.write_u32(self.third);
+        writer.write_u8(self.filler);
+        writer.write_u8(self.tail);
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7636,6 +7665,27 @@ mod tests {
         assert_eq!(&raw.payload[52..56], &8u32.to_le_bytes());
         assert_eq!(&raw.payload[56..58], &3u16.to_le_bytes());
         assert_eq!(&raw.payload[58..], b"exp");
+    }
+
+    #[test]
+    fn tamer_equip_item_writes_expected_body() {
+        let packet = TamerEquipItemPacket {
+            handler: 12,
+            kind: 5,
+            first: 1,
+            second: 2,
+            third: 3,
+            filler: 0,
+            tail: 4,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::TAMER_EQUIP_ITEM);
+        assert_eq!(
+            raw.payload,
+            [12, 0, 5, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0, 4]
+        );
     }
 
     #[test]
