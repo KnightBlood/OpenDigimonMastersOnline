@@ -236,6 +236,10 @@ pub mod game {
     // are rendered into _KillMon.txt and popped open in notepad
     // (44996 0xD90B50, raw asm).
     pub const MASTER_LIE_KILL_MONSTER: i16 = 9958;
+    // Master cash-shop insert result {u2 code}: resolves misc ids 30 (added
+    // to cash shop), 23 (item code missing), 29 (store full) and more,
+    // popped as an ev42 console line (44996 0xD8EDF0, raw asm).
+    pub const MASTER_INSERT_ITEM_TO_SHOP: i16 = 9944;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

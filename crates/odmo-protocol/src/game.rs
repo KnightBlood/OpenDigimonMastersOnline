@@ -1461,6 +1461,22 @@ impl MasterLieKillMonsterPacket {
     }
 }
 
+/// `Master::InsertItemToShop` — opcode 9944: one u2 code resolving a misc
+/// console message (30 added to cash shop, 23 item code missing, 29 store
+/// full, plus further failure ids) popped through event 42.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MasterInsertItemToShopPacket {
+    pub code: u16, // misc message id selector
+}
+
+impl MasterInsertItemToShopPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MASTER_INSERT_ITEM_TO_SHOP);
+        writer.write_u16(self.code);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -7847,6 +7863,15 @@ mod tests {
         assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
         assert_eq!(&raw.payload[4..12], &7i64.to_le_bytes());
         assert_eq!(&raw.payload[12..20], &11i64.to_le_bytes());
+    }
+
+    #[test]
+    fn master_insert_item_to_shop_writes_code() {
+        let packet = MasterInsertItemToShopPacket { code: 2 }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MASTER_INSERT_ITEM_TO_SHOP);
+        assert_eq!(raw.payload, [2, 0]);
     }
 
     #[test]
