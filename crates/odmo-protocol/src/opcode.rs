@@ -181,6 +181,10 @@ pub mod game {
     // other kinds fall through to the digimon vtable reset
     // (44996 0xDC5420).
     pub const SKILL_ERROR: i16 = 1106;
+    // Event active banner {r4; u1 x4; u1 count; count x 71-byte rows} ->
+    // ev130; each row is 68 opaque bytes plus a u2 and a u1 tail
+    // (44996 0xD092D0).
+    pub const EVENT_ACTIVE: i16 = 3138;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;

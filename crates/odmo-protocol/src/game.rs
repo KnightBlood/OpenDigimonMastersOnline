@@ -1145,6 +1145,35 @@ impl SkillErrorPacket {
     }
 }
 
+/// `Event::Active` — opcode 3138: one u4 value, four u1 flags, a u1 row
+/// count and one 71-byte row per count (68 opaque bytes, a u2 and a u1
+/// tail). The client bonds the rows into a list and pings event 130 with
+/// the assembled struct.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EventActivePacket {
+    pub value: u32, // unresolved
+    pub flags: [u8; 4], // unresolved
+    pub rows: Vec<[u8; 71]>,
+}
+
+impl EventActivePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(self.rows.len() <= u8::MAX as usize, "active rows overflow u1");
+        let mut writer = PacketWriter::new(game::EVENT_ACTIVE);
+        writer.write_u32(self.value);
+        for flag in &self.flags {
+            writer.write_u8(*flag);
+        }
+        writer.write_u8(self.rows.len() as u8);
+        for row in &self.rows {
+            for byte in row {
+                writer.write_u8(*byte);
+            }
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7261,6 +7290,28 @@ mod tests {
         let dead_raw = PacketReader::from_frame(&dead).expect("frame should decode");
         assert_eq!(dead_raw.packet_type, game::SKILL_ERROR);
         assert_eq!(dead_raw.payload, [255, 7, 0, 0, 0]);
+    }
+
+    #[test]
+    fn event_active_writes_value_flags_and_rows() {
+        let mut row = [0u8; 71];
+        for (index, byte) in row.iter_mut().enumerate() {
+            *byte = (index + 1) as u8;
+        }
+        let packet = EventActivePacket {
+            value: 250,
+            flags: [1, 2, 3, 4],
+            rows: vec![row],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::EVENT_ACTIVE);
+        assert_eq!(raw.payload.len(), 4 + 4 + 1 + 71);
+        assert_eq!(&raw.payload[..4], &250u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &[1, 2, 3, 4]);
+        assert_eq!(raw.payload[8], 1);
+        assert_eq!(&raw.payload[9..80], &row);
     }
 
     #[test]
