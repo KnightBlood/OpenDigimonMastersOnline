@@ -76,6 +76,16 @@ pub mod game {
     // an 0xFF offset; builds the 32-byte slot buffer for event 118
     // (44996 registry 1713/0xDA0CD0).
     pub const SVR_CHANNEL_INFO: i16 = 1713;
+    // Buddy-notice family. Modern parsers read modern UTF-8 strings
+    // ({u2 len; len x bytes}) before dispatching into the friends UI:
+    // 2401 add ({u1 flag; str}), 2403 ban (str), 2407 not-found (str),
+    // 2408 on (str; see FRIEND_CONNECT), 2409 off (str),
+    // 2410 name change ({u1 flag; str; str}).
+    pub const BUDDY_ADD: i16 = 2401;
+    pub const BUDDY_BAN: i16 = 2403;
+    pub const BUDDY_NOT_FOUND: i16 = 2407;
+    pub const BUDDY_OFF: i16 = 2409;
+    pub const BUDDY_CHANGE_NAME: i16 = 2410;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;

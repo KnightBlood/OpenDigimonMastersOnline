@@ -1803,7 +1803,10 @@ pub struct FriendConnectPacket {
 impl FriendConnectPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::FRIEND_CONNECT);
-        writer.write_string(&self.name);
+        // Modern wire: {u2 byte-length; bytes} parsed by the client's buddy
+        // reader then re-dispatched with an on-flag into the friends UI.
+        // Legacy writers sent a NUL-terminated u8-length string here.
+        writer.write_modern_utf8_string(&self.name);
         writer.finalize()
     }
 }
@@ -4473,6 +4476,96 @@ impl SvrChannelInfoPacket {
     }
 }
 
+fn write_buddy_string(writer: &mut PacketWriter, value: &str) {
+    writer.write_modern_utf8_string(value);
+}
+
+/// `BuddyAdd` notice — opcode 2401.
+/// Modern parser (0xD9F0C0) reads `{u1 flag; {u2 len; len x bytes}}` and
+/// dispatches into the buddy UI with an add classification byte. The flag's
+/// exact role is unattributed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuddyAddPacket {
+    pub flag: u8, // unresolved
+    pub name: String,
+}
+
+impl BuddyAddPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUDDY_ADD);
+        writer.write_u8(self.flag);
+        write_buddy_string(&mut writer, &self.name);
+        writer.finalize()
+    }
+}
+
+/// `BuddyBan` notice — opcode 2403.
+/// Modern parser (0xD9F190) reads one `{u2 len; len x bytes}` string and
+/// dispatches a ban-state message to the friends UI.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuddyBanPacket {
+    pub name: String,
+}
+
+impl BuddyBanPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUDDY_BAN);
+        write_buddy_string(&mut writer, &self.name);
+        writer.finalize()
+    }
+}
+
+/// `BuddyNotFound` notice — opcode 2407.
+/// Modern parser (0xD9F740) reads one `{u2 len; len x bytes}` string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuddyNotFoundPacket {
+    pub name: String,
+}
+
+impl BuddyNotFoundPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUDDY_NOT_FOUND);
+        write_buddy_string(&mut writer, &self.name);
+        writer.finalize()
+    }
+}
+
+/// `BuddyOff` notice — opcode 2409.
+/// Modern parser (0xD9F2F0) reads one `{u2 len; len x bytes}` string and
+/// dispatches an offline-state update (same event as the on-notice).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuddyOffPacket {
+    pub name: String,
+}
+
+impl BuddyOffPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUDDY_OFF);
+        write_buddy_string(&mut writer, &self.name);
+        writer.finalize()
+    }
+}
+
+/// `BuddyChangeName` notice — opcode 2410.
+/// Modern parser (0xD9F7E0) reads `{u1 flag; {u2 len; ..}; {u2 len; ..}}`.
+/// The flag's exact role is unattributed; the string order is wire order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuddyChangeNamePacket {
+    pub flag: u8, // unresolved
+    pub original_name: String,
+    pub updated_name: String,
+}
+
+impl BuddyChangeNamePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::BUDDY_CHANGE_NAME);
+        writer.write_u8(self.flag);
+        write_buddy_string(&mut writer, &self.original_name);
+        write_buddy_string(&mut writer, &self.updated_name);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -6259,6 +6352,48 @@ mod tests {
         .encode();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::FRIEND_CONNECT);
+        // Modern wire: u16 length prefix, no NUL terminator.
+        assert_eq!(raw.payload, [3, 0, b'T', b'a', b'i']);
+    }
+
+    #[test]
+    fn buddy_family_notices_write_modern_strings() {
+        let add = BuddyAddPacket {
+            flag: 1,
+            name: "Sora".into(),
+        }
+        .encode();
+        let add_raw = PacketReader::from_frame(&add).expect("frame should decode");
+        assert_eq!(add_raw.packet_type, game::BUDDY_ADD);
+        assert_eq!(add_raw.payload, [1, 4, 0, b'S', b'o', b'r', b'a']);
+
+        let ban = BuddyBanPacket { name: "Kari".into() }.encode();
+        let ban_raw = PacketReader::from_frame(&ban).expect("frame should decode");
+        assert_eq!(ban_raw.packet_type, game::BUDDY_BAN);
+        assert_eq!(ban_raw.payload, [4, 0, b'K', b'a', b'r', b'i']);
+
+        let missing = BuddyNotFoundPacket { name: "Jp".into() }.encode();
+        let missing_raw = PacketReader::from_frame(&missing).expect("frame should decode");
+        assert_eq!(missing_raw.packet_type, game::BUDDY_NOT_FOUND);
+        assert_eq!(missing_raw.payload, [2, 0, b'J', b'p']);
+
+        let off = BuddyOffPacket { name: "Matt".into() }.encode();
+        let off_raw = PacketReader::from_frame(&off).expect("frame should decode");
+        assert_eq!(off_raw.packet_type, game::BUDDY_OFF);
+        assert_eq!(off_raw.payload, [4, 0, b'M', b'a', b't', b't']);
+
+        let rename = BuddyChangeNamePacket {
+            flag: 2,
+            original_name: "Aa".into(),
+            updated_name: "Bb".into(),
+        }
+        .encode();
+        let rename_raw = PacketReader::from_frame(&rename).expect("frame should decode");
+        assert_eq!(rename_raw.packet_type, game::BUDDY_CHANGE_NAME);
+        assert_eq!(
+            rename_raw.payload,
+            [2, 2, 0, b'A', b'a', 2, 0, b'B', b'b']
+        );
     }
 
     #[test]
