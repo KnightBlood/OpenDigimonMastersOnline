@@ -3862,6 +3862,30 @@ impl GuildAuthorityUpdatePacket {
     }
 }
 
+/// `ItemScanNotice` notice — opcode 3988 (receive table).
+/// Modern parser (0xDBE370) reads `{u4; i64; u2 count; count x u2}` and
+/// assembles one 12-byte list node per row before event 96. Field meanings
+/// stay unattributed; the row count drives the list length.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemScanNoticePacket {
+    pub first: u32,   // unresolved
+    pub second: i64,  // unresolved
+    pub entries: Vec<u16>,
+}
+
+impl ItemScanNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ITEM_SCAN_NOTICE);
+        writer.write_u32(self.first);
+        writer.write_i64(self.second);
+        writer.write_u16(self.entries.len() as u16);
+        for entry in &self.entries {
+            writer.write_u16(*entry);
+        }
+        writer.finalize()
+    }
+}
+
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
 /// Used by the per-rank authority change packets which all share the same payload shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5692,6 +5716,28 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::GAME_DIED_ALREADY);
         assert_eq!(raw.payload, [1, 0]);
+    }
+
+    #[test]
+    fn item_scan_notice_writes_header_pairs_then_u16_rows() {
+        let packet = ItemScanNoticePacket {
+            first: 7,
+            second: -2,
+            entries: vec![11, 12],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ITEM_SCAN_NOTICE);
+        assert_eq!(
+            raw.payload,
+            [
+                7, 0, 0, 0, // u4
+                0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // i64 -2
+                2, 0, // count
+                11, 0, 12, 0, // rows
+            ]
+        );
     }
 
     #[test]

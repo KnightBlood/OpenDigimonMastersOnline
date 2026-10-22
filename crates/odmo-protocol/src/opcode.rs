@@ -86,6 +86,11 @@ pub mod game {
     pub const BUDDY_NOT_FOUND: i16 = 2407;
     pub const BUDDY_OFF: i16 = 2409;
     pub const BUDDY_CHANGE_NAME: i16 = 2410;
+    // Item-scan notice on the receive table: {u4; i64; u2 count;
+    // count x u2 rows} feeding the scan list through event 96
+    // (44996 registry 3988/0xDBE370). The fork's C2S ItemScan request uses
+    // 3987 on the send table, so this notice keeps a distinct constant.
+    pub const ITEM_SCAN_NOTICE: i16 = 3988;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;

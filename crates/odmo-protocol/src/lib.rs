@@ -32,7 +32,7 @@ pub use game::{
     GameHpRatePacket, GameInitialInfoPacket, GameLevelUpPacket, GameHealUpPacket, GameRequest,
     GameTingPacket, GameEmoticonPacket, GameStartMessagePacket, GameDiedAlreadyPacket,
     SvrChannelInfoPacket, BuddyAddPacket, BuddyBanPacket, BuddyNotFoundPacket, BuddyOffPacket,
-    BuddyChangeNamePacket, GiftStorageRetrievePacket, GuildAuthorityUpdatePacket,
+    BuddyChangeNamePacket, ItemScanNoticePacket, GiftStorageRetrievePacket, GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
     GuildInviteSuccessPacket, GuildMemberKickPacket, GuildMemberQuitPacket, GuildMessagePacket,
