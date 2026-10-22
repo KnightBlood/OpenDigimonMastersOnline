@@ -379,6 +379,18 @@ pub mod game {
     // path; every quantity enters the same x100 fixed-point conversion
     // (44996 registry 1018/0xDA6890).
     pub const GAME_GET_EXP: i16 = 1018;
+    // Target-tracking notice {u4 target handler; u1 flag; u4; u4} resolved
+    // through the entity lookup and applied only to non-filtered types
+    // (44996 registry 1017/0xDA6210).
+    pub const GAME_TARGET_INFO: i16 = 1017;
+    // Stat-change notice {u4 handler; u2 count; count x {u2 stat; u4 value}};
+    // stat selector 1..10 and 12 dispatch into distinct setters, then an
+    // empty event-590/476 ping depending on entity type
+    // (44996 registry 1084/0xDAC0F0).
+    pub const GAME_CHANGE_STAT: i16 = 1084;
+    // Silent-state notice {u2; u4}: both fields are consumed with no dispatch
+    // (44996 registry 1062/0xD085B0).
+    pub const GAME_EVENT: i16 = 1062;
     // Message-all failure and incubator error share parser 0xD866F0: one u4
     // is consumed and dropped, no dispatch.
     pub const MSG_ALL_FAILURE: i16 = 1071;

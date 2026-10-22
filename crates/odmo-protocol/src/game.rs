@@ -4026,6 +4026,72 @@ impl GameGetExpNoticePacket {
     }
 }
 
+/// `TargetInfo` notice — opcode 1017.
+/// Modern parser (0xDA6210) reads `{u4 target handler; u1 flag; u4; u4}`;
+/// the handler resolves through the entity lookup and the flag feeds a slot
+/// setter, while the last two u4 fields are stored verbatim on the tracked
+/// entity (their delta semantics stay unattributed).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameTargetInfoPacket {
+    pub target_handler: u32, // resolved by the client entity lookup
+    pub flag: u8,            // feeds a slot setter
+    pub first: u32,          // stored verbatim on the entity
+    pub second: u32,         // stored as (field - value) on the entity
+}
+
+impl GameTargetInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_TARGET_INFO);
+        writer.write_u32(self.target_handler);
+        writer.write_u8(self.flag);
+        writer.write_u32(self.first);
+        writer.write_u32(self.second);
+        writer.finalize()
+    }
+}
+
+/// `ChangeStat` notice — opcode 1084.
+/// Modern parser (0xDAC0F0) reads `{u4 handler; u2 count; count x {u2 stat;
+/// u4 value}}`; stat selectors 1..10 and 12 dispatch into distinct setters
+/// (9 renders a float), other selectors are skipped. After the loop the
+/// client pings an empty event 590 (type 13) or 476 (type 11).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameChangeStatPacket {
+    pub handler: u32, // resolved by the client entity lookup
+    pub stats: Vec<(u16, u32)>,
+}
+
+impl GameChangeStatPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert!(self.stats.len() <= u16::MAX as usize, "stat count overflows u2");
+        let mut writer = PacketWriter::new(game::GAME_CHANGE_STAT);
+        writer.write_u32(self.handler);
+        writer.write_u16(self.stats.len() as u16);
+        for (stat, value) in &self.stats {
+            writer.write_u16(*stat);
+            writer.write_u32(*value);
+        }
+        writer.finalize()
+    }
+}
+
+/// `GameEvent` notice — opcode 1062: the client consumes `{u2; u4}` with no
+/// dispatch; both slots stay reserved to keep the cursor aligned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct GameEventNoticePacket {
+    pub first: u16,  // unresolved (consumed silently)
+    pub second: u32, // unresolved (consumed silently)
+}
+
+impl GameEventNoticePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_EVENT);
+        writer.write_u16(self.first);
+        writer.write_u32(self.second);
+        writer.finalize()
+    }
+}
+
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
 /// Used by the per-rank authority change packets which all share the same payload shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5966,6 +6032,46 @@ mod tests {
         assert_eq!(raw.payload.len(), 48);
         assert_eq!(&raw.payload[24..28], &[7, 0, 0, 0]);
         assert_eq!(&raw.payload[44..48], &[88, 0, 0, 0]);
+    }
+
+    #[test]
+    fn target_info_change_stat_and_event_fill_expected_bodies() {
+        let target = GameTargetInfoPacket {
+            target_handler: 0x100,
+            flag: 2,
+            first: 3,
+            second: 4,
+        }
+        .encode();
+        let target_raw = PacketReader::from_frame(&target).expect("frame should decode");
+        assert_eq!(target_raw.packet_type, game::GAME_TARGET_INFO);
+        assert_eq!(
+            target_raw.payload,
+            [0, 1, 0, 0, 2, 3, 0, 0, 0, 4, 0, 0, 0]
+        );
+
+        let change = GameChangeStatPacket {
+            handler: 77,
+            stats: vec![(1, 10), (9, 20), (12, 30)],
+        }
+        .encode();
+        let change_raw = PacketReader::from_frame(&change).expect("frame should decode");
+        assert_eq!(change_raw.packet_type, game::GAME_CHANGE_STAT);
+        assert_eq!(
+            change_raw.payload,
+            [
+                77, 0, 0, 0, // handler
+                3, 0,        // count
+                1, 0, 10, 0, 0, 0, // stat 1
+                9, 0, 20, 0, 0, 0,  // stat 9
+                12, 0, 30, 0, 0, 0, // stat 12
+            ]
+        );
+
+        let event = GameEventNoticePacket { first: 5, second: 6 }.encode();
+        let event_raw = PacketReader::from_frame(&event).expect("frame should decode");
+        assert_eq!(event_raw.packet_type, game::GAME_EVENT);
+        assert_eq!(event_raw.payload, [5, 0, 6, 0, 0, 0]);
     }
 
     #[test]
