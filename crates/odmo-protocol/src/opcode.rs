@@ -47,6 +47,12 @@ pub mod game {
     pub const CHAT_MESSAGE_RESPONSE: i16 = 1006;
     pub const INITIAL_INFORMATION: i16 = 1706;
     pub const INITIAL_INFO_RESPONSE: i16 = 1003;
+    // Target HP-rate notice {u4 handler_id, u1 rate} -> event 42
+    // (44996 registry 1007/0xDA6EB0, builder case pGame::HpRate).
+    pub const GAME_HP_RATE: i16 = 1007;
+    // Level-up notice {u4 handler_id, u1 level} -> event 667
+    // (44996 registry 1019/0xDA6C60, builder case pGame::LevelUp).
+    pub const GAME_LEVEL_UP: i16 = 1019;
     pub const UPDATE_STATUS: i16 = 1043;
     pub const SERVER_EXPERIENCE: i16 = 1054;
     pub const SEALS: i16 = 1333;

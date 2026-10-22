@@ -4280,6 +4280,42 @@ impl SkillUpdateCooldownPacket {
     }
 }
 
+/// `GameHpRate` notice — opcode 1007.
+/// Modern parser (0xDA6EB0) reads `{u4 handler_id; u1 rate}`; a non-zero id
+/// resolves the entity and invokes its HP-rate setter (vm+108) with the rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameHpRatePacket {
+    pub handler_id: u32,
+    pub rate: u8,
+}
+
+impl GameHpRatePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_HP_RATE);
+        writer.write_u32(self.handler_id);
+        writer.write_u8(self.rate);
+        writer.finalize()
+    }
+}
+
+/// `GameLevelUp` notice — opcode 1019.
+/// Modern parser (0xDA6C60) reads `{u4 handler_id; u1 level}`; a non-zero id
+/// goes through the entity-table lookup (`sub_DDA4E0`) and raises event 667.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameLevelUpPacket {
+    pub handler_id: u32,
+    pub level: u8,
+}
+
+impl GameLevelUpPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAME_LEVEL_UP);
+        writer.write_u32(self.handler_id);
+        writer.write_u8(self.level);
+        writer.finalize()
+    }
+}
+
 // ---
 
 impl TryFrom<RawPacket> for GameRequest {
@@ -5282,6 +5318,32 @@ mod tests {
                 drop_handler: 49_200,
             }
         );
+    }
+
+    #[test]
+    fn game_hp_rate_notice_writes_u32_then_u8() {
+        let packet = GameHpRatePacket {
+            handler_id: 0x1234_5678,
+            rate: 85,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_HP_RATE);
+        assert_eq!(raw.payload, [0x78, 0x56, 0x34, 0x12, 85]);
+    }
+
+    #[test]
+    fn game_level_up_notice_writes_u32_then_u8() {
+        let packet = GameLevelUpPacket {
+            handler_id: 7,
+            level: 42,
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAME_LEVEL_UP);
+        assert_eq!(raw.payload, [7, 0, 0, 0, 42]);
     }
 
     #[test]
