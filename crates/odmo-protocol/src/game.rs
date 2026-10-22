@@ -1461,6 +1461,52 @@ impl MasterLieKillMonsterPacket {
     }
 }
 
+/// One slot/value row of the pinochi item-delete flows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PinochiDeleteRow {
+    pub slot: u16,  // table row index (<= 198)
+    pub value: u16, // decrement / delete amount
+}
+
+/// One counted {slot; value} block.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PinochiDeleteList {
+    pub rows: Vec<PinochiDeleteRow>,
+}
+
+impl PinochiDeleteList {
+    fn encode_on(&self, writer: &mut PacketWriter) {
+        assert!(self.rows.len() <= u8::MAX as usize, "delete rows overflow u2");
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_u16(row.slot);
+            writer.write_u32(row.value as u32);
+        }
+    }
+}
+
+/// `PinochiItemDelete` — opcode 3128: {u4 key; three counted blocks of
+/// {u2 slot; u4 value}}. Block 1 decrements digimon skill-table rows
+/// (zeroing the 69-byte row on underflow), blocks 2 and 3 are limit-checked
+/// and popped to events 59 and 60 respectively; the tail walks the
+/// special-event NPC list and refreshes the message box.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PinochiItemDeletePacket {
+    pub key: u32, // unresolved NPC/table key
+    pub lists: [PinochiDeleteList; 3],
+}
+
+impl PinochiItemDeletePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::EVENT_PINOCHI_ITEM_DELETE);
+        writer.write_u32(self.key);
+        for list in &self.lists {
+            list.encode_on(&mut writer);
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InventoryType {
     Inventory = 0,
@@ -7770,6 +7816,31 @@ mod tests {
         assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
         assert_eq!(&raw.payload[4..12], &7i64.to_le_bytes());
         assert_eq!(&raw.payload[12..20], &11i64.to_le_bytes());
+    }
+
+    #[test]
+    fn pinochi_item_delete_writes_three_counted_blocks() {
+        let lists = [
+            PinochiDeleteList {
+                rows: vec![PinochiDeleteRow { slot: 1, value: 2 }],
+            },
+            PinochiDeleteList::default(),
+            PinochiDeleteList {
+                rows: vec![
+                    PinochiDeleteRow { slot: 3, value: 4 },
+                    PinochiDeleteRow { slot: 5, value: 6 },
+                ],
+            },
+        ];
+        let packet = PinochiItemDeletePacket { key: 9, lists }.encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::EVENT_PINOCHI_ITEM_DELETE);
+        assert_eq!(raw.payload.len(), 4 + (2 + 6) + (2) + (2 + 12));
+        assert_eq!(&raw.payload[..4], &9u32.to_le_bytes());
+        assert_eq!(raw.payload[4..6], [1, 0]);
+        assert_eq!(raw.payload[6..8], [1, 0]); // one row
+        assert_eq!(raw.payload[10..12], [0, 0]); // empty second block
     }
 
     #[test]

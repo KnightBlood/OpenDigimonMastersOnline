@@ -236,6 +236,12 @@ pub mod game {
     // are rendered into _KillMon.txt and popped open in notepad
     // (44996 0xD90B50, raw asm).
     pub const MASTER_LIE_KILL_MONSTER: i16 = 9958;
+    // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
+    // value}}}: block 1 decrements digimon skill-table rows (zeroing the
+    // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
+    // ev59/ev60, and the tail walks the special-event NPC list
+    // (44996 0xDB4B80).
+    pub const EVENT_PINOCHI_ITEM_DELETE: i16 = 3128;
     pub const REPURCHASE_ITEM: i16 = 3978;
     pub const LOAD_NPC_REPURCHASE_LIST: i16 = 3979;
     pub const DIGI_SUMMON_SYNC_REQUEST: i16 = 3652;
