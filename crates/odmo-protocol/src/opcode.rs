@@ -185,6 +185,15 @@ pub mod game {
     pub const ENCYCLOPEDIA_DECK_USE: i16 = 3236;
     // Encyclopedia deck buff {u2 option_index}, ENCY_MAX_OPTION == 4.
     pub const ENCYCLOPEDIA_DECK_BUFF: i16 = 3237;
+    // Care slot size notice {u2 slot_count} -> event 407 (44996 registry 3205/0xDAEF50).
+    pub const DIGIMON_CARE_SLOT_SIZE: i16 = 3205;
+    // Battle tag result notices; both payloadless (44996 registry 3209/0xDAD980,
+    // 3210/0xDAD9A0).
+    pub const DIGIMON_BATTLE_TAG_SUCCESS: i16 = 3209;
+    pub const DIGIMON_BATTLE_TAG_FAILURE: i16 = 3210;
+    // Skill point init {u1 count, count × 28-byte record} -> event 477
+    // (44996 registry 3213/0xDA0DA0).
+    pub const DIGIMON_SKILL_POINT_INIT: i16 = 3213;
     pub const OTHER_TAMER_DETAIL_INFO_REQUEST: i16 = 16070;
     pub const OTHER_TAMER_DETAIL_INFO_RESPONSE: i16 = 16071;
     pub const ARENA_DAILY_POINTS: i16 = 4131;

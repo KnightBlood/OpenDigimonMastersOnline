@@ -2371,6 +2371,59 @@ impl EncyclopediaDeckBuffUsePacket {
     }
 }
 
+/// `CareSlotSize` notice — opcode 3205, {u2 slot_count}, consumed by event 407.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CareSlotSizePacket {
+    pub slot_count: u16,
+}
+
+impl CareSlotSizePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_CARE_SLOT_SIZE);
+        writer.write_u16(self.slot_count);
+        writer.finalize()
+    }
+}
+
+/// `BattleTagSuccess` notice — opcode 3209, empty payload.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BattleTagSuccessPacket;
+
+impl BattleTagSuccessPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::DIGIMON_BATTLE_TAG_SUCCESS).finalize()
+    }
+}
+
+/// `BattleTagFailure` notice — opcode 3210, empty payload.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BattleTagFailurePacket;
+
+impl BattleTagFailurePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::DIGIMON_BATTLE_TAG_FAILURE).finalize()
+    }
+}
+
+/// `SkillPointInit` notice — opcode 3213.
+/// Modern parser reads {u1 count; count × 28-byte record blobs} and emits
+/// event 477. Record contents are not yet attributed; the wire shape is exact.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DigimonSkillPointInitPacket {
+    pub records: Vec<[u8; 28]>,
+}
+
+impl DigimonSkillPointInitPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_SKILL_POINT_INIT);
+        writer.write_u8(self.records.len().min(255) as u8);
+        for record in self.records.iter().take(255) {
+            writer.write_bytes(&record[..]);
+        }
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -5481,8 +5534,39 @@ mod tests {
     }
 
     #[test]
-    fn initial_info_packet_uses_expected_opcode() {
-        let packet = GameInitialInfoPacket {
+    fn care_slot_size_notice_encodes_u2_payload() {
+        let packet = CareSlotSizePacket { slot_count: 12 }.encode();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_CARE_SLOT_SIZE);
+        assert_eq!(raw.payload, 12u16.to_le_bytes());
+    }
+
+    #[test]
+    fn battle_tag_notices_are_payloadless_frames() {
+        for (packet, opcode) in [
+            (BattleTagSuccessPacket.encode(), game::DIGIMON_BATTLE_TAG_SUCCESS),
+            (BattleTagFailurePacket.encode(), game::DIGIMON_BATTLE_TAG_FAILURE),
+        ] {
+            let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+            assert_eq!(raw.packet_type, opcode);
+            assert!(raw.payload.is_empty(), "expected empty payload");
+        }
+    }
+
+    #[test]
+    fn skill_point_init_encodes_count_and_blob_records() {
+        let records: Vec<[u8; 28]> = (0u8..3).map(|i| core::array::from_fn(|k| i * 28 + k as u8)).collect();
+        let expect: Vec<u8> = records.iter().flat_map(|r| r.iter().copied()).collect();
+        let packet = DigimonSkillPointInitPacket { records }.encode();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DIGIMON_SKILL_POINT_INIT);
+        assert_eq!(raw.payload[0], 3, "count byte");
+        assert_eq!(raw.payload[1..].len(), 3 * 28, "record bytes");
+        assert_eq!(&raw.payload[1..], &expect[..]);
+    }
+
+    #[test]
+    fn initial_info_packet_uses_expected_opcode() {        let packet = GameInitialInfoPacket {
             character: CharacterSummary {
                 id: 1,
                 account_id: 1,
