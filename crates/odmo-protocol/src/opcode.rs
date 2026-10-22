@@ -249,6 +249,17 @@ pub mod game {
     // Incubator error notice; parser consumes a u4 and drops it
     // (44996 registry 3228/0xD866F0). Field meaning unresolved.
     pub const DIGIMON_INCUBATER_ERROR: i16 = 3228;
+    // Incubator list rows: exactly 3 rows of {u4; u4; u4}, each row handed to
+    // the slot builder, then an empty event-408 dispatch
+    // (44996 registry 3226/0xDB2830).
+    pub const DIGIMON_INCUBATER_LIST: i16 = 3226;
+    // Incubator extraction result {u1} -> event 413
+    // (44996 registry 3229/0xDB2A70).
+    pub const DIGIMON_EXTRACTION: i16 = 3229;
+    // Incubator slot change {u4 slot; u4 value} -> event 411; slot -1 makes
+    // the client close the incubator view instead
+    // (44996 registry 3231/0xDB2AE0).
+    pub const DIGIMON_INCUBATER_SLOT_CHANGE: i16 = 3231;
     pub const OTHER_TAMER_DETAIL_INFO_REQUEST: i16 = 16070;
     pub const OTHER_TAMER_DETAIL_INFO_RESPONSE: i16 = 16071;
     pub const ARENA_DAILY_POINTS: i16 = 4131;

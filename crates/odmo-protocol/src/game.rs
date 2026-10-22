@@ -2468,6 +2468,59 @@ impl DigimonIncubaterErrorPacket {
     }
 }
 
+/// `IncubaterList` notice — opcode 3226.
+/// Modern parser (0xDB2830) always reads three {u4; u4; u4} rows, hands each
+/// to the slot builder and dispatches an empty event 408. Row field meanings
+/// stay unattributed.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DigimonIncubaterListPacket {
+    pub rows: Vec<(u32, u32, u32)>, // always 3 on the modern read side
+}
+
+impl DigimonIncubaterListPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        assert_eq!(self.rows.len(), 3, "incubator list is fixed to 3 rows");
+        let mut writer = PacketWriter::new(game::DIGIMON_INCUBATER_LIST);
+        for (first, second, third) in &self.rows {
+            writer.write_u32(*first);
+            writer.write_u32(*second);
+            writer.write_u32(*third);
+        }
+        writer.finalize()
+    }
+}
+
+/// `Extraction` notice — opcode 3229: one u8 handed to event 413.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DigimonExtractionPacket {
+    pub result: u8, // unresolved
+}
+
+impl DigimonExtractionPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_EXTRACTION);
+        writer.write_u8(self.result);
+        writer.finalize()
+    }
+}
+
+/// `IncubaterSlotChange` notice — opcode 3231: {u4 slot; u4 value} handed to
+/// event 411; slot -1 makes the client close the incubator view instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DigimonIncubaterSlotChangePacket {
+    pub slot: u32,  // -1 closes the view
+    pub value: u32, // unresolved
+}
+
+impl DigimonIncubaterSlotChangePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DIGIMON_INCUBATER_SLOT_CHANGE);
+        writer.write_u32(self.slot);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
 /// A `{key, value}` pair as carried by the detail-info skill and enchant grids.
 /// Skills use `{skill_id, level}`; enchants use `{attribute_kind, value}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -6419,6 +6472,33 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::DIGIMON_INCUBATER_ERROR);
         assert_eq!(raw.payload, 0x11223344u32.to_le_bytes());
+    }
+
+    #[test]
+    fn incubator_list_rows_extraction_and_slot_change_fill_bodies() {
+        let list = DigimonIncubaterListPacket {
+            rows: vec![(1, 2, 3), (4, 5, 6), (7, 8, 9)],
+        }
+        .encode();
+        let list_raw = PacketReader::from_frame(&list).expect("frame should decode");
+        assert_eq!(list_raw.packet_type, game::DIGIMON_INCUBATER_LIST);
+        assert_eq!(list_raw.payload.len(), 36);
+        assert_eq!(&list_raw.payload[..8], &[1, 0, 0, 0, 2, 0, 0, 0]);
+        assert_eq!(&list_raw.payload[32..36], &[9, 0, 0, 0]);
+
+        let extraction = DigimonExtractionPacket { result: 2 }.encode();
+        let extraction_raw = PacketReader::from_frame(&extraction).expect("frame should decode");
+        assert_eq!(extraction_raw.packet_type, game::DIGIMON_EXTRACTION);
+        assert_eq!(extraction_raw.payload, [2]);
+
+        let slot = DigimonIncubaterSlotChangePacket {
+            slot: 5,
+            value: 1000,
+        }
+        .encode();
+        let slot_raw = PacketReader::from_frame(&slot).expect("frame should decode");
+        assert_eq!(slot_raw.packet_type, game::DIGIMON_INCUBATER_SLOT_CHANGE);
+        assert_eq!(slot_raw.payload, [5, 0, 0, 0, 232, 3, 0, 0]);
     }
 
     #[test]
