@@ -694,6 +694,14 @@ pub mod game {
     pub const GAMETWO_TIME_CHARGE_NORMAL: i16 = 16044;
     pub const GAMETWO_TIME_CHARGE_IMMEDIATE: i16 = 16045;
     pub const GAMETWO_TIME_CHARGE_CANCEL: i16 = 16046;
+    pub const GAMETWO_TIME_CHARGE_WITHDRAW: i16 = 16047;
+    // Satellite pins: PiemonGameStart {u8 a; u4 b; u4 c} through event 75
+    // (44996 0xDB0510); PiemonGameEnd {u4 value} forwarded raw through
+    // event 76 (0xDB0600); PlayTimeSet {u4 skipped} with the cursor
+    // advanced past the u4 and nothing notified (0xD866F0).
+    pub const MINIEVENT_PIEMON_GAME_START: i16 = 5001;
+    pub const MINIEVENT_PIEMON_GAME_END: i16 = 5002;
+    pub const MGR_PLAY_TIME_SET: i16 = 9715;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;

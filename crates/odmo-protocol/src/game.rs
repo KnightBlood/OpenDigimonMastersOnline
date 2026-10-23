@@ -2906,6 +2906,74 @@ impl TimeChargeCancelPacket {
     }
 }
 
+/// `GameTwo::TimeChargeWithdraw` — opcode 16047: {u4 a; u8 c; u2 d};
+/// event 517 pops with the whole envelope.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TimeChargeWithdrawPacket {
+    pub a: u32,
+    pub c: u64,
+    pub d: u16,
+}
+
+impl TimeChargeWithdrawPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_TIME_CHARGE_WITHDRAW);
+        writer.write_u32(self.a);
+        writer.write_u64(self.c);
+        writer.write_u16(self.d);
+        writer.finalize()
+    }
+}
+
+/// `MiniEvent::PiemonGameStart` — opcode 5001: {u8 a; u4 b; u4 c};
+/// event 75 pops with the three fields.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PiemonGameStartPacket {
+    pub a: u64,
+    pub b: u32,
+    pub c: u32,
+}
+
+impl PiemonGameStartPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MINIEVENT_PIEMON_GAME_START);
+        writer.write_u64(self.a);
+        writer.write_u32(self.b);
+        writer.write_u32(self.c);
+        writer.finalize()
+    }
+}
+
+/// `MiniEvent::PiemonGameEnd` — opcode 5002: {u4 value}; the value is
+/// forwarded raw through event 76.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PiemonGameEndPacket {
+    pub value: u32,
+}
+
+impl PiemonGameEndPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MINIEVENT_PIEMON_GAME_END);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
+/// `Mgr::PlayTimeSet` — opcode 9715: {u4 skipped}; the parser advances
+/// past the u4 without storing or notifying anything.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MgrPlayTimeSetPacket {
+    pub skipped: u32,
+}
+
+impl MgrPlayTimeSetPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MGR_PLAY_TIME_SET);
+        writer.write_u32(self.skipped);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -10317,6 +10385,46 @@ mod tests {
         assert_eq!(&raw.payload[93..95], &6u16.to_le_bytes());
         assert_eq!(&raw.payload[95..97], &7u16.to_le_bytes());
         assert_eq!(&raw.payload[97..99], &8u16.to_le_bytes());
+    }
+
+    #[test]
+    fn satellite_pins_writes_withdraw_piemon_and_play_time() {
+        let withdraw = TimeChargeWithdrawPacket {
+            a: 1,
+            c: 2,
+            d: 3,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&withdraw).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_TIME_CHARGE_WITHDRAW);
+        // u4 + u8 + u2
+        assert_eq!(raw.payload.len(), 14);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..12], &2u64.to_le_bytes());
+        assert_eq!(&raw.payload[12..14], &3u16.to_le_bytes());
+
+        let start = PiemonGameStartPacket {
+            a: 1,
+            b: 2,
+            c: 3,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&start).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MINIEVENT_PIEMON_GAME_START);
+        assert_eq!(raw.payload.len(), 16);
+        assert_eq!(&raw.payload[..8], &1u64.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[12..16], &3u32.to_le_bytes());
+
+        let end = PiemonGameEndPacket { value: 9 }.encode();
+        let raw = PacketReader::from_frame(&end).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MINIEVENT_PIEMON_GAME_END);
+        assert_eq!(raw.payload, 9u32.to_le_bytes());
+
+        let play_time = MgrPlayTimeSetPacket { skipped: 5 }.encode();
+        let raw = PacketReader::from_frame(&play_time).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MGR_PLAY_TIME_SET);
+        assert_eq!(raw.payload, 5u32.to_le_bytes());
     }
 
     #[test]
