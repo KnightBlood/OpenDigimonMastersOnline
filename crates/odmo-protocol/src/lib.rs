@@ -75,6 +75,8 @@ pub use game::{
     SvrSelectPortalFailurePacket, MonsterNatualExpPacket,
     EventHotTimePacket, EventItemTypePacket, MsgRaidRankingRow,
     MsgRaidRankingListPacket,
+    GameTwoDoorObjectOpenPacket, GameGuardRow, GameTwoGameGuardCheckPacket,
+    GameTwoSkillActionPacket, GameTwoXGuageUpdatePacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

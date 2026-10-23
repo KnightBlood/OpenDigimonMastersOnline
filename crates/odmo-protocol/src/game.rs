@@ -2649,6 +2649,103 @@ impl MsgRaidRankingListPacket {
     }
 }
 
+/// `GameTwo::DoorObjectOpen` — opcode 16007: {u4 monster id; u1 opened}.
+/// The client logs "ActorObject - MonsterID / Opend" and spawns the door
+/// actor from the pair, pinging event 42 with the formatted log string
+/// and event 538 with the spawn node.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameTwoDoorObjectOpenPacket {
+    pub monster_id: u32,
+    pub opened: u8,
+}
+
+impl GameTwoDoorObjectOpenPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_DOOR_OBJECT_OPEN);
+        writer.write_u32(self.monster_id);
+        writer.write_u8(self.opened);
+        writer.finalize()
+    }
+}
+
+/// One guard entry of `GameTwo::GameGuardCheck` — opcode 16011: {u1 kind;
+/// u4 c; u4 d; u1 e}. The dispatcher traces c through the guard path and
+/// builds the event-666 message from c; unresolved fields keep their
+/// accumulator offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameGuardRow {
+    pub kind: u8,
+    pub c: u32,
+    pub d: u32,
+    pub e: u8,
+}
+
+/// `GameTwo::GameGuardCheck` — opcode 16011: {u4 a; u4 b; u2 count;
+/// count x rows}. The leading a is matched against the selected/main
+/// monster handler to enable the guard path.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameTwoGameGuardCheckPacket {
+    pub a: u32,
+    pub b: u32,
+    pub rows: Vec<GameGuardRow>,
+}
+
+impl GameTwoGameGuardCheckPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_GAME_GUARD_CHECK);
+        assert!(
+            self.rows.len() <= u16::MAX as usize,
+            "game guard rows overflow u2"
+        );
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_u8(row.kind);
+            writer.write_u32(row.c);
+            writer.write_u32(row.d);
+            writer.write_u8(row.e);
+        }
+        writer.finalize()
+    }
+}
+
+/// `GameTwo::SkillAction` — opcode 16012: {u4 kind}; the client triggers
+/// the skill action only when kind is 4.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameTwoSkillActionPacket {
+    pub kind: u32,
+}
+
+impl GameTwoSkillActionPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_SKILL_ACTION);
+        writer.write_u32(self.kind);
+        writer.finalize()
+    }
+}
+
+/// `GameTwo::XGuageUpdate` — opcode 16034: {u2 a; s2 name; u4 b; u4 c};
+/// event 423 carries the whole envelope unparsed.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GameTwoXGuageUpdatePacket {
+    pub a: u16,
+    pub name: String, // modern utf8 string, u16 length prefix
+    pub b: u32,
+    pub c: u32,
+}
+
+impl GameTwoXGuageUpdatePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_X_GUAGE_UPDATE);
+        writer.write_u16(self.a);
+        writer.write_modern_utf8_string(&self.name);
+        writer.write_u32(self.b);
+        writer.write_u32(self.c);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9913,6 +10010,75 @@ mod tests {
         assert_eq!(&raw.payload[17..21], &2u32.to_le_bytes());
         assert_eq!(&raw.payload[21..25], &3u32.to_le_bytes());
         assert_eq!(&raw.payload[25..29], &4u32.to_le_bytes());
+    }
+
+    #[test]
+    fn game_two_family_writes_doors_guards_actions_and_guage() {
+        let door = GameTwoDoorObjectOpenPacket {
+            monster_id: 7,
+            opened: 1,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&door).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_DOOR_OBJECT_OPEN);
+        assert_eq!(raw.payload.len(), 5);
+        assert_eq!(&raw.payload[..4], &7u32.to_le_bytes());
+        assert_eq!(raw.payload[4], 1);
+
+        let guard = GameTwoGameGuardCheckPacket {
+            a: 1,
+            b: 2,
+            rows: vec![
+                GameGuardRow {
+                    kind: 1,
+                    c: 3,
+                    d: 4,
+                    e: 5,
+                },
+                GameGuardRow {
+                    kind: 0,
+                    c: 6,
+                    d: 7,
+                    e: 8,
+                },
+            ],
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&guard).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_GAME_GUARD_CHECK);
+        assert_eq!(raw.payload.len(), 10 + 2 * 10);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..10], &2u16.to_le_bytes());
+        // kind + c + d + e
+        assert_eq!(&raw.payload[10..11], [1]);
+        assert_eq!(&raw.payload[11..15], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[15..19], &4u32.to_le_bytes());
+        assert_eq!(raw.payload[19], 5);
+        assert_eq!(raw.payload[20], 0);
+        assert_eq!(&raw.payload[21..25], &6u32.to_le_bytes());
+
+        let action = GameTwoSkillActionPacket { kind: 4 }.encode();
+        let raw = PacketReader::from_frame(&action).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_SKILL_ACTION);
+        assert_eq!(raw.payload, 4u32.to_le_bytes());
+
+        let guage = GameTwoXGuageUpdatePacket {
+            a: 1,
+            name: "bar".to_string(),
+            b: 2,
+            c: 3,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&guage).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_X_GUAGE_UPDATE);
+        // u2 + name (u16 len + 3 bytes) + u4 + u4
+        assert_eq!(raw.payload.len(), 2 + 5 + 8);
+        assert_eq!(&raw.payload[..2], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..4], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[4..7], b"bar");
+        assert_eq!(&raw.payload[7..11], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[11..15], &3u32.to_le_bytes());
     }
 
     #[test]

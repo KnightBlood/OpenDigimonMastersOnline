@@ -671,6 +671,19 @@ pub mod game {
     pub const SKILL_LEVEL_UP: i16 = 1104;
     pub const TAMER_CHARGE_XCRYSTAL: i16 = 16030;
     pub const TAMER_CONSUME_XCRYSTAL: i16 = 16031;
+    // GameTwo satellites: DoorObjectOpen {u4 monster id; u1 opened} drives
+    // the door-actor spawn and pings event 42 with a formatted log string
+    // plus event 538 with the spawned node (44996 0xDB45D0);
+    // GameGuardCheck {u4 a; u4 b; u2 count; count x {u1 kind; u4 c; u4 d;
+    // u1 e}} matches the leading id against the selected/main monster and
+    // pings event 666 when the guard path settles (0xDC3EC0);
+    // SkillAction {u4 kind} triggers a skill action only for kind 4
+    // (0xDB5B90); XGuageUpdate {u2 a; s2 name; u4 b; u4 c} through event
+    // 423 (0xDB6730).
+    pub const GAMETWO_DOOR_OBJECT_OPEN: i16 = 16007;
+    pub const GAMETWO_GAME_GUARD_CHECK: i16 = 16011;
+    pub const GAMETWO_SKILL_ACTION: i16 = 16012;
+    pub const GAMETWO_X_GUAGE_UPDATE: i16 = 16034;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;
