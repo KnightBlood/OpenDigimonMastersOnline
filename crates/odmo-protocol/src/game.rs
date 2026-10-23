@@ -2421,6 +2421,152 @@ impl BuffStunPacket {
     }
 }
 
+/// `CashShop::BuyRequest` — opcode 3401: {u4 a; u4 b}; the pair flows
+/// straight into the event 433 report.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CashShopBuyRequestPacket {
+    pub a: u32,
+    pub b: u32,
+}
+
+impl CashShopBuyRequestPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::CASH_SHOP_BUY_REQUEST);
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.finalize()
+    }
+}
+
+/// `CashShop::Gift` — opcode 3403: {u2 a; u4 b; u4 c; s2 name; u4 d};
+/// event 430 carries the fields with the recipient name string.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CashShopGiftPacket {
+    pub a: u16, // unresolved field
+    pub b: u32, // unresolved field
+    pub c: u32, // unresolved field
+    pub name: String, // modern utf8 string, u16 length prefix
+    pub d: u32, // unresolved field
+}
+
+impl CashShopGiftPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::CASH_SHOP_GIFT);
+        writer.write_u16(self.a);
+        writer.write_u32(self.b);
+        writer.write_u32(self.c);
+        writer.write_modern_utf8_string(&self.name);
+        writer.write_u32(self.d);
+        writer.finalize()
+    }
+}
+
+/// `CashShop::Cart` — opcode 3405: a skipped 48-byte blob; the client
+/// advances the cursor past it and pops event 426.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CashShopCartPacket {
+    pub blob: [u8; 48],
+}
+
+impl Default for CashShopCartPacket {
+    fn default() -> Self {
+        Self { blob: [0u8; 48] }
+    }
+}
+
+impl CashShopCartPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::CASH_SHOP_CART);
+        writer.write_bytes(&self.blob);
+        writer.finalize()
+    }
+}
+
+/// One row of `Quest::Canceled` — opcode 11008: {u4 kind; u2 slot; u4 a;
+/// u4 b}; kind 2 or 9 routes the row to the direct-cancel handler.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct QuestCancelRow {
+    pub kind: u32,
+    pub slot: u16,
+    pub a: u32, // unresolved field
+    pub b: u32, // unresolved field
+}
+
+/// `Quest::Canceled` — opcode 11008: {u2 count; count x rows}.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct QuestCanceledPacket {
+    pub rows: Vec<QuestCancelRow>,
+}
+
+impl QuestCanceledPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::QUEST_CANCELED);
+        assert!(
+            self.rows.len() <= u16::MAX as usize,
+            "canceled quest rows overflow u2"
+        );
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_u32(row.kind);
+            writer.write_u16(row.slot);
+            writer.write_u32(row.a);
+            writer.write_u32(row.b);
+        }
+        writer.finalize()
+    }
+}
+
+/// `InsMap::DungeonFail` — opcode 4121: {u4 skipped}; the parser advances
+/// past the u4 without storing it, flags the map singleton byte +28584,
+/// and the inventory associates dispatch id 262 with it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct InsMapDungeonFailPacket {
+    pub skipped: u32,
+}
+
+impl InsMapDungeonFailPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::INSMAP_DUNGEON_FAIL);
+        writer.write_u32(self.skipped);
+        writer.finalize()
+    }
+}
+
+/// `Svr::SelectPortalFailure` — opcode 1710: {u4 skipped}; the u4 is
+/// consumed unstored, and the portal-error flag gates event 124. The flag
+/// clears afterwards either way.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SvrSelectPortalFailurePacket {
+    pub skipped: u32,
+}
+
+impl SvrSelectPortalFailurePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SVR_SELECT_PORTAL_FAILURE);
+        writer.write_u32(self.skipped);
+        writer.finalize()
+    }
+}
+
+/// `Monster::NatualExp` — opcode 1602: {u1 a; u1 b; u2 c}; event 576
+/// forwards the opcode id followed by the three fields untranslated.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MonsterNatualExpPacket {
+    pub a: u8,
+    pub b: u8,
+    pub c: u16,
+}
+
+impl MonsterNatualExpPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MONSTER_NATUAL_EXP);
+        writer.write_u8(self.a);
+        writer.write_u8(self.b);
+        writer.write_u16(self.c);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9517,6 +9663,100 @@ mod tests {
         assert_eq!(raw.payload.len(), 14);
         assert_eq!(&raw.payload[8..10], &3u16.to_le_bytes());
         assert_eq!(&raw.payload[10..14], &4u32.to_le_bytes());
+    }
+
+    #[test]
+    fn cash_shop_family_writes_results() {
+        let buy = CashShopBuyRequestPacket { a: 1, b: 2 }.encode();
+        let raw = PacketReader::from_frame(&buy).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::CASH_SHOP_BUY_REQUEST);
+        assert_eq!(raw.payload, [1u32, 2]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect::<Vec<u8>>());
+
+        let gift = CashShopGiftPacket {
+            a: 1,
+            b: 2,
+            c: 3,
+            name: "tamer".into(),
+            d: 4,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&gift).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::CASH_SHOP_GIFT);
+        // u2 + u4 + u4 + name (u16 len + 5 bytes) + u4
+        assert_eq!(raw.payload.len(), 21);
+        assert_eq!(&raw.payload[..2], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[10..12], &5u16.to_le_bytes());
+        assert_eq!(&raw.payload[12..17], b"tamer");
+        assert_eq!(&raw.payload[17..21], &4u32.to_le_bytes());
+
+        let cart = CashShopCartPacket {
+            blob: {
+                let mut blob = [0u8; 48];
+                for (i, cell) in blob.iter_mut().enumerate() {
+                    *cell = i as u8;
+                }
+                blob
+            },
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&cart).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::CASH_SHOP_CART);
+        assert_eq!(raw.payload.len(), 48);
+        assert_eq!(raw.payload[0], 0);
+        assert_eq!(raw.payload[47], 47);
+    }
+
+    #[test]
+    fn queue_sweep_writes_small_envelopes() {
+        let cancel = QuestCanceledPacket {
+            rows: vec![
+                QuestCancelRow {
+                    kind: 2,
+                    slot: 1,
+                    a: 3,
+                    b: 4,
+                },
+                QuestCancelRow {
+                    kind: 7,
+                    slot: 5,
+                    a: 6,
+                    b: 7,
+                },
+            ],
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&cancel).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::QUEST_CANCELED);
+        assert_eq!(raw.payload.len(), 2 + 2 * 14);
+        assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[6..8], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[12..16], &4u32.to_le_bytes());
+        assert_eq!(&raw.payload[16..20], &7u32.to_le_bytes());
+
+        let fail = InsMapDungeonFailPacket { skipped: 9 }.encode();
+        let raw = PacketReader::from_frame(&fail).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::INSMAP_DUNGEON_FAIL);
+        assert_eq!(raw.payload, 9u32.to_le_bytes());
+
+        let portal = SvrSelectPortalFailurePacket { skipped: 4 }.encode();
+        let raw = PacketReader::from_frame(&portal).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SVR_SELECT_PORTAL_FAILURE);
+        assert_eq!(raw.payload, 4u32.to_le_bytes());
+
+        let exp = MonsterNatualExpPacket { a: 1, b: 2, c: 300 }.encode();
+        let raw = PacketReader::from_frame(&exp).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MONSTER_NATUAL_EXP);
+        assert_eq!(raw.payload.len(), 4);
+        assert_eq!(raw.payload[0], 1);
+        assert_eq!(raw.payload[1], 2);
+        assert_eq!(&raw.payload[2..4], &300u16.to_le_bytes());
     }
 
     #[test]

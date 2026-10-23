@@ -372,6 +372,21 @@ pub mod game {
     // Event masters-matching ping with an empty payload: no cursor reads,
     // the parser fires event 572 carrying {3125, 0} (44996 0xDB2600).
     pub const EVENT_MASTERS_MATCHING: i16 = 3125;
+    // Cash shop results: BuyRequest {u4 a; u4 b} through event 433; Gift
+    // {u2 a; u4 b; u4 c; s2 name; u4 d} through event 430; Cart a skipped
+    // 48-byte blob through event 426 (44996 0xDBF5C0/0xDBF280/0xDBECD0).
+    pub const CASH_SHOP_BUY_REQUEST: i16 = 3401;
+    pub const CASH_SHOP_GIFT: i16 = 3403;
+    pub const CASH_SHOP_CART: i16 = 3405;
+    // Channel-dispatch satellites: DungeonFail {u4 skipped} flags the map
+    // singleton and settles without an event line (44996 0xDA4C50);
+    // SelectPortalFailure {u4 skipped} fires event 124 only when the
+    // portal-error flag is up (0xDA4F50); NatualExp {u1 a; u1 b; u2 c}
+    // forwards the fields through event 576 carrying the opcode id
+    // (0xDB0670).
+    pub const MONSTER_NATUAL_EXP: i16 = 1602;
+    pub const SVR_SELECT_PORTAL_FAILURE: i16 = 1710;
+    pub const INSMAP_DUNGEON_FAIL: i16 = 4121;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to
@@ -464,6 +479,11 @@ pub mod game {
     pub const QUEST_UPDATE: i16 = 11001;
     pub const QUEST_GOAL_UPDATE: i16 = 11001;
     pub const QUEST_DAILY_UPDATE: i16 = 11006;
+    // Quest cancellation receipt {u2 count; count x {u4 kind; u2 slot;
+    // u4 a; u4 b}}: rows with kind 2 or 9 take the direct-cancel path,
+    // the rest land on the secondary list and pop events 59/60 with the
+    // collected lists (44996 0xDA03B0).
+    pub const QUEST_CANCELED: i16 = 11008;
     pub const DIE_CONFIRM: i16 = 1022;
     // Buff family (44996 0xD8D7xx/0xDCxxxx): fixed dispatch envelopes on
     // resolved target entities. CreateBuff {u4 target; u2 a; u2 b; u4 c;
