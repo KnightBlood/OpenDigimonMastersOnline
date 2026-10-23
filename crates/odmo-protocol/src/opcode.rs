@@ -385,8 +385,20 @@ pub mod game {
     // forwards the fields through event 576 carrying the opcode id
     // (0xDB0670).
     pub const MONSTER_NATUAL_EXP: i16 = 1602;
+    // Raid ranking roster {u4 count; count x {u4 a; s2 name1; s2 name2;
+    // u4 b; u4 c}}; each row becomes a 72-byte list node consumed by the
+    // ranking view and event 629 pops when the list settles (44996
+    // 0xDA9AF0).
+    pub const MONSTER_MSG_RAID_RANKING_LIST: i16 = 1604;
     pub const SVR_SELECT_PORTAL_FAILURE: i16 = 1710;
     pub const INSMAP_DUNGEON_FAIL: i16 = 4121;
+    // Event satellites: HotTimeEvent {u1; u1; u1; u1; u4; u4} forwards the
+    // fields through the 453 event (the accumulator starts as the opcode
+    // id with both low op bytes zero) (44996 0xD08860); EventType {s2
+    // name; u4 a; u2 b} through event 528 (0xD09070). Registry name
+    // "Event::HotTimeEvent"; the older notice above is 3135.
+    pub const EVENT_HOT_TIME_EVENT: i16 = 3134;
+    pub const EVENT_ITEM_TYPE: i16 = 3140;
     // Pinochi item delete {r4 key; x3 {u2 count; count x {u2 slot; r4
     // value}}}: block 1 decrements digimon skill-table rows (zeroing the
     // 69-byte row on underflow), blocks 2/3 are limit-checked and popped to

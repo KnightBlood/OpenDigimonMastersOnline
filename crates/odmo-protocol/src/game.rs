@@ -2567,6 +2567,88 @@ impl MonsterNatualExpPacket {
     }
 }
 
+/// `Event::HotTimeEvent` — opcode 3134: {u1 a; u1 b; u1 c; u1 d; u4 e;
+/// u4 f}. The client rollers the four leading bytes into {u16, u16}
+/// accumulator slots after the opcode id and pings event 453.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EventHotTimePacket {
+    pub a: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u32,
+    pub f: u32,
+}
+
+impl EventHotTimePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::EVENT_HOT_TIME_EVENT);
+        writer.write_u8(self.a);
+        writer.write_u8(self.b);
+        writer.write_u8(self.c);
+        writer.write_u8(self.d);
+        writer.write_u32(self.e);
+        writer.write_u32(self.f);
+        writer.finalize()
+    }
+}
+
+/// `Event::ItemType` — opcode 3140: {s2 name; u4 a; u2 b}; event 528
+/// carries the name string with the two trailing fields.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EventItemTypePacket {
+    pub name: String, // modern utf8 string, u16 length prefix
+    pub a: u32,
+    pub b: u16,
+}
+
+impl EventItemTypePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::EVENT_ITEM_TYPE);
+        writer.write_modern_utf8_string(&self.name);
+        writer.write_u32(self.a);
+        writer.write_u16(self.b);
+        writer.finalize()
+    }
+}
+
+/// One roster row of `Monster::MsgRaidRankingList` — opcode 1604: {u4 a;
+/// s2 name1; s2 name2; u4 b; u4 c}; unresolved fields keep their node
+/// offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MsgRaidRankingRow {
+    pub a: u32,
+    pub name1: String, // modern utf8 string, u16 length prefix
+    pub name2: String, // modern utf8 string, u16 length prefix
+    pub b: u32,
+    pub c: u32,
+}
+
+/// `Monster::MsgRaidRankingList` — opcode 1604: {u4 count; count x rows}.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MsgRaidRankingListPacket {
+    pub rows: Vec<MsgRaidRankingRow>,
+}
+
+impl MsgRaidRankingListPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MONSTER_MSG_RAID_RANKING_LIST);
+        assert!(
+            self.rows.len() <= u32::MAX as usize,
+            "raid ranking rows overflow u4"
+        );
+        writer.write_u32(self.rows.len() as u32);
+        for row in &self.rows {
+            writer.write_u32(row.a);
+            writer.write_modern_utf8_string(&row.name1);
+            writer.write_modern_utf8_string(&row.name2);
+            writer.write_u32(row.b);
+            writer.write_u32(row.c);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -9757,6 +9839,80 @@ mod tests {
         assert_eq!(raw.payload[0], 1);
         assert_eq!(raw.payload[1], 2);
         assert_eq!(&raw.payload[2..4], &300u16.to_le_bytes());
+    }
+
+    #[test]
+    fn event_family_writes_hot_time_and_item_type() {
+        let hot = EventHotTimePacket {
+            a: 1,
+            b: 2,
+            c: 3,
+            d: 4,
+            e: 5,
+            f: 6,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&hot).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::EVENT_HOT_TIME_EVENT);
+        // four u1 bytes + two u4 words
+        assert_eq!(raw.payload.len(), 12);
+        assert_eq!(raw.payload[0], 1);
+        assert_eq!(raw.payload[1], 2);
+        assert_eq!(raw.payload[2], 3);
+        assert_eq!(raw.payload[3], 4);
+        assert_eq!(&raw.payload[4..8], &5u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &6u32.to_le_bytes());
+
+        let item = EventItemTypePacket {
+            name: "tree".to_string(),
+            a: 7,
+            b: 8,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&item).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::EVENT_ITEM_TYPE);
+        // name (u16 len + 4 bytes) + u4 + u2
+        assert_eq!(raw.payload.len(), 12);
+        assert_eq!(&raw.payload[..2], &4u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], b"tree");
+        assert_eq!(&raw.payload[6..10], &7u32.to_le_bytes());
+        assert_eq!(&raw.payload[10..12], &8u16.to_le_bytes());
+    }
+
+    #[test]
+    fn raid_ranking_list_writes_counted_name_rows() {
+        let packet = MsgRaidRankingListPacket {
+            rows: vec![
+                MsgRaidRankingRow {
+                    a: 1,
+                    name1: "Ann".to_string(),
+                    name2: "Bo".to_string(),
+                    b: 2,
+                    c: 3,
+                },
+                MsgRaidRankingRow {
+                    a: 4,
+                    name1: String::new(),
+                    name2: "Cy".to_string(),
+                    b: 5,
+                    c: 6,
+                },
+            ],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MONSTER_MSG_RAID_RANKING_LIST);
+        // count + row1 (4 + 2+3 + 2+2 + 4 + 4) + row2 (4 + 2 + 2+2 + 4 + 4)
+        assert_eq!(raw.payload.len(), 4 + 21 + 18);
+        assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..13], [3, 0, b'A', b'n', b'n']);
+        assert_eq!(&raw.payload[13..15], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[15..17], b"Bo");
+        assert_eq!(&raw.payload[17..21], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[21..25], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[25..29], &4u32.to_le_bytes());
     }
 
     #[test]

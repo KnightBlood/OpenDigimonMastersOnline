@@ -73,6 +73,8 @@ pub use game::{
     CashShopBuyRequestPacket, CashShopGiftPacket, CashShopCartPacket,
     QuestCancelRow, QuestCanceledPacket, InsMapDungeonFailPacket,
     SvrSelectPortalFailurePacket, MonsterNatualExpPacket,
+    EventHotTimePacket, EventItemTypePacket, MsgRaidRankingRow,
+    MsgRaidRankingListPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
