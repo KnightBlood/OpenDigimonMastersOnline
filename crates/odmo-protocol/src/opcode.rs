@@ -684,6 +684,16 @@ pub mod game {
     pub const GAMETWO_GAME_GUARD_CHECK: i16 = 16011;
     pub const GAMETWO_SKILL_ACTION: i16 = 16012;
     pub const GAMETWO_X_GUAGE_UPDATE: i16 = 16034;
+    // TimeCharge family. ItemList {u4 a; u2 b; u4 c; u4 d; u8 e; 69-byte
+    // charge row; u4 f} through event 510 (44996 0xD9C2C0); Normal {u4 a;
+    // u4 b; u4 c; 69-byte charge row; u8 d; u2 count; count x {u2 e;
+    // u2 f}} building a slot list through event 511 (0xD9C4C0);
+    // Immediate {u4 a; u2 b; u4 c; 69-byte charge row} through event 513
+    // (0xD9C920); Cancel with the same body through event 515 (0xD9CA80).
+    pub const GAMETWO_TIME_CHARGE_ITEM_LIST: i16 = 16043;
+    pub const GAMETWO_TIME_CHARGE_NORMAL: i16 = 16044;
+    pub const GAMETWO_TIME_CHARGE_IMMEDIATE: i16 = 16045;
+    pub const GAMETWO_TIME_CHARGE_CANCEL: i16 = 16046;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;

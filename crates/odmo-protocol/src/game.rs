@@ -2746,6 +2746,166 @@ impl GameTwoXGuageUpdatePacket {
     }
 }
 
+/// `GameTwo::TimeChargeItemList` — opcode 16043: {u4 a; u2 b; u4 c; u4 d;
+/// u8 e; u8[69] charge row; u4 f}; the whole envelope flows through
+/// event 510. Unresolved fields keep their accumulator offsets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeChargeItemListPacket {
+    pub a: u32,
+    pub b: u16,
+    pub c: u32,
+    pub d: u32,
+    pub e: u64,
+    pub charge_row: [u8; 69],
+    pub f: u32,
+}
+
+impl Default for TimeChargeItemListPacket {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            charge_row: [0u8; 69],
+            f: 0,
+        }
+    }
+}
+
+impl TimeChargeItemListPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_TIME_CHARGE_ITEM_LIST);
+        writer.write_u32(self.a);
+        writer.write_u16(self.b);
+        writer.write_u32(self.c);
+        writer.write_u32(self.d);
+        writer.write_u64(self.e);
+        writer.write_bytes(&self.charge_row);
+        writer.write_u32(self.f);
+        writer.finalize()
+    }
+}
+
+/// One {u2; u2} slot entry of `GameTwo::TimeChargeNormal`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TimeChargeSlot {
+    pub e: u16,
+    pub f: u16,
+}
+
+/// `GameTwo::TimeChargeNormal` — opcode 16044: {u4 a; u4 b; u4 c; u8[69]
+/// charge row; u8 d; u2 count; count x slots}; the slot list feeds
+/// event 511.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeChargeNormalPacket {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+    pub charge_row: [u8; 69],
+    pub d: u64,
+    pub rows: Vec<TimeChargeSlot>,
+}
+
+impl Default for TimeChargeNormalPacket {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            b: 0,
+            c: 0,
+            charge_row: [0u8; 69],
+            d: 0,
+            rows: Vec::new(),
+        }
+    }
+}
+
+impl TimeChargeNormalPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_TIME_CHARGE_NORMAL);
+        assert!(
+            self.rows.len() <= u16::MAX as usize,
+            "time charge slots overflow u2"
+        );
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.write_u32(self.c);
+        writer.write_bytes(&self.charge_row);
+        writer.write_u64(self.d);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_u16(row.e);
+            writer.write_u16(row.f);
+        }
+        writer.finalize()
+    }
+}
+
+/// `GameTwo::TimeChargeImmediate` — opcode 16045: {u4 a; u2 b; u4 c;
+/// u8[69] charge row}; event 513 pops with the envelope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeChargeImmediatePacket {
+    pub a: u32,
+    pub b: u16,
+    pub c: u32,
+    pub charge_row: [u8; 69],
+}
+
+impl Default for TimeChargeImmediatePacket {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            b: 0,
+            c: 0,
+            charge_row: [0u8; 69],
+        }
+    }
+}
+
+impl TimeChargeImmediatePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_TIME_CHARGE_IMMEDIATE);
+        writer.write_u32(self.a);
+        writer.write_u16(self.b);
+        writer.write_u32(self.c);
+        writer.write_bytes(&self.charge_row);
+        writer.finalize()
+    }
+}
+
+/// `GameTwo::TimeChargeCancel` — opcode 16046: {u4 a; u2 b; u4 c; u8[69]
+/// charge row}; event 515 pops with the envelope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeChargeCancelPacket {
+    pub a: u32,
+    pub b: u16,
+    pub c: u32,
+    pub charge_row: [u8; 69],
+}
+
+impl Default for TimeChargeCancelPacket {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            b: 0,
+            c: 0,
+            charge_row: [0u8; 69],
+        }
+    }
+}
+
+impl TimeChargeCancelPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_TIME_CHARGE_CANCEL);
+        writer.write_u32(self.a);
+        writer.write_u16(self.b);
+        writer.write_u32(self.c);
+        writer.write_bytes(&self.charge_row);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -10079,6 +10239,84 @@ mod tests {
         assert_eq!(&raw.payload[4..7], b"bar");
         assert_eq!(&raw.payload[7..11], &2u32.to_le_bytes());
         assert_eq!(&raw.payload[11..15], &3u32.to_le_bytes());
+    }
+
+    #[test]
+    fn time_charge_family_writes_charge_rows_and_slot_lists() {
+        let immediate = TimeChargeImmediatePacket {
+            a: 1,
+            b: 2,
+            c: 3,
+            charge_row: {
+                let mut blob = [0u8; 69];
+                for (i, cell) in blob.iter_mut().enumerate() {
+                    *cell = i as u8;
+                }
+                blob
+            },
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&immediate).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_TIME_CHARGE_IMMEDIATE);
+        // u4 + u2 + u4 + 69-byte row
+        assert_eq!(raw.payload.len(), 10 + 69);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], &3u32.to_le_bytes());
+        assert_eq!(raw.payload[10], 0);
+        assert_eq!(raw.payload[78], 68);
+
+        let cancel = TimeChargeCancelPacket::default().encode();
+        let raw = PacketReader::from_frame(&cancel).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_TIME_CHARGE_CANCEL);
+        assert_eq!(raw.payload.len(), 10 + 69);
+        assert!(raw.payload.iter().all(|byte| *byte == 0));
+
+        let list = TimeChargeItemListPacket {
+            a: 1,
+            b: 2,
+            c: 3,
+            d: 4,
+            e: 5,
+            charge_row: [7u8; 69],
+            f: 6,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&list).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_TIME_CHARGE_ITEM_LIST);
+        // u4 + u2 + u4 + u4 + u8 + 69 + u4
+        assert_eq!(raw.payload.len(), 22 + 69 + 4);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[10..14], &4u32.to_le_bytes());
+        assert_eq!(&raw.payload[14..22], &5u64.to_le_bytes());
+        assert_eq!(raw.payload[22], 7);
+        assert_eq!(raw.payload[90], 7);
+        assert_eq!(&raw.payload[91..95], &6u32.to_le_bytes());
+
+        let normal = TimeChargeNormalPacket {
+            a: 1,
+            b: 2,
+            c: 3,
+            charge_row: [7u8; 69],
+            d: 4,
+            rows: vec![TimeChargeSlot { e: 5, f: 6 }, TimeChargeSlot { e: 7, f: 8 }],
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&normal).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_TIME_CHARGE_NORMAL);
+        // u4 x3 + 69 + u8 + count + 2 rows x 4 bytes
+        assert_eq!(raw.payload.len(), 12 + 69 + 8 + 2 + 8);
+        assert_eq!(&raw.payload[4..8], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &3u32.to_le_bytes());
+        assert_eq!(raw.payload[12], 7);
+        assert_eq!(&raw.payload[81..89], &4u64.to_le_bytes());
+        assert_eq!(&raw.payload[89..91], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[91..93], &5u16.to_le_bytes());
+        assert_eq!(&raw.payload[93..95], &6u16.to_le_bytes());
+        assert_eq!(&raw.payload[95..97], &7u16.to_le_bytes());
+        assert_eq!(&raw.payload[97..99], &8u16.to_le_bytes());
     }
 
     #[test]

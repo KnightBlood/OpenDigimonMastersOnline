@@ -77,6 +77,8 @@ pub use game::{
     MsgRaidRankingListPacket,
     GameTwoDoorObjectOpenPacket, GameGuardRow, GameTwoGameGuardCheckPacket,
     GameTwoSkillActionPacket, GameTwoXGuageUpdatePacket,
+    TimeChargeItemListPacket, TimeChargeSlot, TimeChargeNormalPacket,
+    TimeChargeImmediatePacket, TimeChargeCancelPacket,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
