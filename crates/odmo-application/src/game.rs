@@ -12798,6 +12798,145 @@ mod tests {
         }
     }
 
+    fn frames_of_type(
+        broadcast: &RecordingBroadcast,
+        character_id: u64,
+        packet_type: i16,
+    ) -> Vec<Vec<u8>> {
+        broadcast
+            .packets_for(character_id)
+            .into_iter()
+            .filter(|frame| {
+                PacketReader::from_frame(frame)
+                    .map(|raw| raw.packet_type == packet_type)
+                    .unwrap_or(false)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn party_chat_reaches_the_other_members() {
+        let repo = Arc::new(InMemoryCharacterRepository::demo());
+        let broadcast = Arc::new(RecordingBroadcast::with_online([100, 200]));
+        let app = GameApplication::new(
+            GameServiceConfig {
+                portal_state_dir: unique_test_dir("party-chat"),
+            },
+            repo,
+        )
+        .with_broadcast(broadcast.clone());
+
+        let mut leader = GameSession::new(1);
+        leader.character_id = Some(100);
+        app.handle_request(
+            &mut leader,
+            GameRequest::PartyInvite {
+                target_name: "Matt".to_string(),
+            },
+        )
+        .expect("invite should reach the online target");
+
+        let mut invitee = GameSession::new(2);
+        invitee.character_id = Some(200);
+        app.handle_request(
+            &mut invitee,
+            GameRequest::PartyInviteResponse {
+                result_type: PARTY_INVITE_ACCEPTED,
+                inviter_name: "AdminTamer".to_string(),
+            },
+        )
+        .expect("accept should form the party");
+
+        let responses = app
+            .handle_request(
+                &mut leader,
+                GameRequest::PartyChat {
+                    message: "on my way".to_string(),
+                },
+            )
+            .expect("party chat should succeed");
+        assert!(
+            responses.is_empty(),
+            "the speaker is not sent its own party line back",
+        );
+
+        let delivered = frames_of_type(&broadcast, 200, odmo_protocol::opcode::game::PARTY_CHAT);
+        assert_eq!(delivered.len(), 1, "the other member receives the line");
+        let frame = PacketReader::from_frame(&delivered[0]).expect("frame should decode");
+        assert_eq!(
+            frame.payload,
+            [
+                &[10, 0],
+                b"AdminTamer".as_slice(),
+                &[9, 0],
+                b"on my way".as_slice()
+            ]
+            .concat(),
+            "party chat carries the sender then the line as modern text",
+        );
+    }
+
+    #[test]
+    fn guild_chat_reaches_the_online_members() {
+        let repo = Arc::new(InMemoryCharacterRepository::demo());
+        let broadcast = Arc::new(RecordingBroadcast::with_online([100, 200]));
+        let app = GameApplication::new(
+            GameServiceConfig {
+                portal_state_dir: unique_test_dir("guild-chat"),
+            },
+            repo,
+        )
+        .with_broadcast(broadcast.clone());
+
+        let mut master = GameSession::new(1);
+        master.character_id = Some(100);
+        app.handle_request(
+            &mut master,
+            GameRequest::GuildCreate {
+                guild_name: "Sentinels".to_string(),
+                inven_slot: 0,
+                npc_id: 0,
+            },
+        )
+        .expect("guild should be created");
+
+        app.handle_request(
+            &mut master,
+            GameRequest::GuildInvite {
+                target_name: "Matt".to_string(),
+            },
+        )
+        .expect("invite should be queued");
+
+        let mut recruit = GameSession::new(2);
+        recruit.character_id = Some(200);
+        app.handle_request(
+            &mut recruit,
+            GameRequest::GuildInviteAccept {
+                certified_code: 0,
+                target_name: String::new(),
+            },
+        )
+        .expect("accept should join the guild");
+
+        let responses = app
+            .handle_request(
+                &mut master,
+                GameRequest::GuildMessage {
+                    message: "rally".to_string(),
+                },
+            )
+            .expect("guild chat should succeed");
+        assert_eq!(responses.len(), 1, "the speaker gets its own line back");
+
+        let delivered = frames_of_type(&broadcast, 200, odmo_protocol::opcode::game::GUILD_MESSAGE);
+        assert_eq!(delivered.len(), 1, "the online member receives the line");
+        assert_eq!(
+            delivered[0], responses[0],
+            "members get the same frame the speaker sees",
+        );
+    }
+
     #[test]
     fn party_change_master_broadcasts_slot() {
         let repo = Arc::new(InMemoryCharacterRepository::demo());
