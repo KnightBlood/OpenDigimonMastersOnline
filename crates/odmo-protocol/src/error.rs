@@ -22,4 +22,6 @@ pub enum ProtocolError {
     InvalidTextLength(usize),
     #[error("text field is not valid UTF-8")]
     InvalidTextEncoding,
+    #[error("unsupported tamer summon discriminator {0}")]
+    UnsupportedSummonCase(u8),
 }

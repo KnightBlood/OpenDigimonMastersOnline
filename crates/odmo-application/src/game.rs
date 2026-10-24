@@ -10,7 +10,7 @@ use std::{
 
 use thiserror::Error;
 
-use odmo_protocol::game::EvolutionUnlockItem;
+use odmo_protocol::game::{EvolutionUnlockItem, TamerSummonRequest};
 use odmo_protocol::{
     ArenaFameInfoPacket, ArenaFameSeasonListPacket, ArenaOldRankingInfoPacket,
     ArenaRankingDailyLoadPacket, ArenaRankingDailyUpdatePointsPacket, ArenaRankingInfoPacket,
@@ -2913,9 +2913,17 @@ impl GameApplication {
             GameRequest::TamerConsumeXCrystal { amount } => {
                 self.handle_tamer_consume_xcrystal(session, amount)
             }
-            GameRequest::TamerSummon { target_name } => {
-                self.handle_tamer_summon(session, target_name)
-            }
+            GameRequest::TamerSummon(summon) => match summon {
+                TamerSummonRequest::ByName {
+                    target_name,
+                    skill_index: _,
+                } => self.handle_tamer_summon(session, target_name),
+                // The remaining cases report summon-dialog state. Nothing changes in the
+                // world and the client waits for no reply, so they are consumed silently.
+                TamerSummonRequest::StateCheck { .. } | TamerSummonRequest::Accept { .. } => {
+                    Ok(Vec::new())
+                }
+            },
             GameRequest::TamerSkillRequest {
                 skill_idx,
                 target_uid,

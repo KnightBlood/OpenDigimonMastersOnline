@@ -220,7 +220,7 @@ fn encode_request(req: &GameRequest) -> Vec<u8> {
             writer.write_i32(*npc_id);
             writer.finalize()
         }
-        // [u8 slot][string validation][i32 npc_id].
+        // [u8 slot][text validation][i32 npc_id].
         GameRequest::DigimonToSpirit {
             slot,
             validation,
@@ -228,7 +228,7 @@ fn encode_request(req: &GameRequest) -> Vec<u8> {
         } => {
             let mut writer = PacketWriter::new(game::DIGIMON_TO_SPIRIT);
             writer.write_u8(*slot);
-            writer.write_string(validation);
+            writer.write_modern_utf8_string(validation);
             writer.write_i32(*npc_id);
             writer.finalize()
         }
@@ -1061,10 +1061,10 @@ proptest! {
             }
         );
 
-        // Digimon-to-spirit request (3240): [u8 slot][string validation][i32 npc_id].
+        // Digimon-to-spirit request (3240): [u8 slot][text validation][i32 npc_id].
         let mut craft_request = PacketWriter::new(game::DIGIMON_TO_SPIRIT);
         craft_request.write_u8(slot);
-        craft_request.write_string(&validation);
+        craft_request.write_modern_utf8_string(&validation);
         craft_request.write_i32(craft_npc_id);
         let craft_request_frame = craft_request.finalize();
         let craft_request_raw =

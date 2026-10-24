@@ -600,9 +600,8 @@ pub enum GameRequest {
     TamerConsumeXCrystal {
         amount: i32,
     },
-    TamerSummon {
-        target_name: String,
-    },
+    /// `pSkill::Summon` C→S — opcode 1114, discriminated by its leading case byte.
+    TamerSummon(TamerSummonRequest),
     TamerSkillRequest {
         skill_idx: u32,
         target_uid: u32,
@@ -620,6 +619,26 @@ pub enum GameRequest {
         slot: u8,
         validation: String,
         npc_id: i32,
+    },
+}
+
+/// Bodies the client frames under `pSkill::Summon`; the leading case byte chooses one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TamerSummonRequest {
+    /// `[u1 1][text target_name][u4 skill_index]` — summon through a named tamer skill.
+    ByName {
+        target_name: String,
+        skill_index: u32,
+    },
+    /// `[u1 4][u1 1][u1]` or `[u1 4][u1 2][u4]` — the summon UI reports a state value.
+    StateCheck {
+        submode: u8,
+        value: u32,
+    },
+    /// `[u1 case][u1 value]` — a caller-selected case with no payload beyond the value.
+    Accept {
+        case: u8,
+        value: u8,
     },
 }
 
@@ -8095,7 +8114,7 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::PARTNER_DELETE => {
                 let slot = reader.read_u8()?;
-                let validation = reader.read_string()?;
+                let validation = reader.read_modern_utf8_string()?;
                 Ok(Self::PartnerDelete { slot, validation })
             }
             game::EVOLUTION_UNLOCK => {
@@ -8806,8 +8825,29 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::TamerConsumeXCrystal { amount })
             }
             game::TAMER_SUMMON => {
-                let target_name = reader.read_string()?;
-                Ok(Self::TamerSummon { target_name })
+                let case = reader.read_u8()?;
+                let summon = match case {
+                    1 => TamerSummonRequest::ByName {
+                        target_name: reader.read_modern_utf8_string()?,
+                        skill_index: reader.read_u32()?,
+                    },
+                    4 => {
+                        let submode = reader.read_u8()?;
+                        let value = match submode {
+                            1 => u32::from(reader.read_u8()?),
+                            2 => reader.read_u32()?,
+                            _ => {
+                                return Err(ProtocolError::UnsupportedSummonCase(submode));
+                            }
+                        };
+                        TamerSummonRequest::StateCheck { submode, value }
+                    }
+                    _ => TamerSummonRequest::Accept {
+                        case,
+                        value: reader.read_u8()?,
+                    },
+                };
+                Ok(Self::TamerSummon(summon))
             }
             game::TAMER_SKILL_REQUEST => {
                 let skill_idx = reader.read_u32()?;
@@ -8826,7 +8866,7 @@ impl TryFrom<RawPacket> for GameRequest {
             game::WARP_GATE_DUNGEON => Ok(Self::WarpGateDungeon),
             game::DIGIMON_TO_SPIRIT => {
                 let slot = reader.read_u8()?;
-                let validation = reader.read_string()?;
+                let validation = reader.read_modern_utf8_string()?;
                 let npc_id = reader.read_i32()?;
                 Ok(Self::DigimonToSpirit {
                     slot,
@@ -11245,6 +11285,61 @@ mod tests {
     }
 
     #[test]
+    fn tamer_summon_request_follows_its_case_byte() {
+        fn decode(payload: &[u8]) -> Result<GameRequest, ProtocolError> {
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::TAMER_SUMMON,
+                payload: payload.to_vec(),
+            })
+        }
+
+        // Case 1 is the only body carrying text: `[u1 1][text name][u4 skill index]`.
+        let mut by_name = vec![1_u8];
+        by_name.extend_from_slice(&5_u16.to_le_bytes());
+        by_name.extend_from_slice(b"Ricky");
+        by_name.extend_from_slice(&7_u32.to_le_bytes());
+        assert_eq!(
+            decode(&by_name).expect("summon by name should parse"),
+            GameRequest::TamerSummon(TamerSummonRequest::ByName {
+                target_name: "Ricky".to_string(),
+                skill_index: 7,
+            })
+        );
+
+        // Case 4 splits on a sub-mode: one byte of value, or one dword of it.
+        assert_eq!(
+            decode(&[4, 1, 2]).expect("state check should parse"),
+            GameRequest::TamerSummon(TamerSummonRequest::StateCheck {
+                submode: 1,
+                value: 2,
+            })
+        );
+        let mut dword_state = vec![4_u8, 2];
+        dword_state.extend_from_slice(&300_u32.to_le_bytes());
+        assert_eq!(
+            decode(&dword_state).expect("state check should parse"),
+            GameRequest::TamerSummon(TamerSummonRequest::StateCheck {
+                submode: 2,
+                value: 300,
+            })
+        );
+
+        // Any other case is a two-byte accept frame.
+        assert_eq!(
+            decode(&[2, 5]).expect("accept should parse"),
+            GameRequest::TamerSummon(TamerSummonRequest::Accept { case: 2, value: 5 })
+        );
+
+        // An unknown sub-mode under case 4 cannot be guessed: the remaining bytes would
+        // be either one or four, so the request fails instead of desyncing.
+        assert!(matches!(
+            decode(&[4, 9, 1]),
+            Err(ProtocolError::UnsupportedSummonCase(9))
+        ));
+    }
+
+    #[test]
     fn guild_set_title_decodes_modern_text_fields() {
         let mut payload = Vec::new();
         payload.extend_from_slice(&2_i32.to_le_bytes());
@@ -13084,7 +13179,7 @@ mod tests {
     fn digimon_to_spirit_request_decodes_modern_client_payload() {
         let mut writer = PacketWriter::new(game::DIGIMON_TO_SPIRIT);
         writer.write_u8(2);
-        writer.write_string("4321");
+        writer.write_modern_utf8_string("4321");
         writer.write_i32(91001);
         let packet = writer.finalize();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
@@ -13552,7 +13647,7 @@ mod tests {
     fn partner_delete_request_decodes_modern_client_payload() {
         let mut writer = PacketWriter::new(game::PARTNER_DELETE);
         writer.write_u8(2);
-        writer.write_string("secret42");
+        writer.write_modern_utf8_string("secret42");
         let packet = writer.finalize();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         let request = GameRequest::try_from(raw).expect("request should decode");
