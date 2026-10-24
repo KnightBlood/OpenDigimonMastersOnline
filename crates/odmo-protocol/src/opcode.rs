@@ -239,15 +239,16 @@ pub mod game {
     // fields feed the console info branches, each popping through ev42 (semantics
     // unresolved).
     pub const MASTER_USER_INFO: i16 = 9920;
-    // Master rare-machine census {u4 count; count x s2 name}: count 0 pops misc id
-    // 39 (CHAT_RAREMACHINE_CHEAT_WRONG_INPUT_DATA) and names that miss the item
+    // Master rare-machine census {u4 count; count x u4 item_code}: count 0 pops misc id
+    // 39 (CHAT_RAREMACHINE_CHEAT_WRONG_INPUT_DATA) and codes that miss the item
     // table pop misc id 38 (WRONG_RECV_DATA) through ev42; hits are rolled into
     // Cheat_RareMachine.txt and opened in notepad.
     pub const MASTER_MACHINE_RUN: i16 = 9981;
-    // Master item-rank census {u2 tier; u4 count; count x s2 name}: tier 0 pops
-    // misc id 36 (CHAT_ITEMRANK_CHEAT_WRONG_INPUT_DATA) and names that miss the
-    // item table pop misc id 33 (CHAT_CHEAT_MESSAGE_ITEMRANK_ERROR) through ev42;
-    // hits roll into Cheat_ItemRank.txt + notepad.
+    // Master item-rank census {u2 selector; u4 count; count x u4 item_code}: a zero
+    // selector ends the frame and pops misc id 36 (CHAT_ITEMRANK_CHEAT_WRONG_INPUT_DATA);
+    // codes that miss the item table pop misc id 33
+    // (CHAT_CHEAT_MESSAGE_ITEMRANK_ERROR) through ev42; hits roll into
+    // Cheat_ItemRank.txt + notepad.
     pub const MASTER_RANK_ITEM_RUN: i16 = 9982;
     // Skill range-persist end {u4 id}: drops the tracked range-persist effect entry
     // whose entity carries the id and respawns its tail particle.

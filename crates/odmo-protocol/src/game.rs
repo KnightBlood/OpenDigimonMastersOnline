@@ -1697,52 +1697,54 @@ impl MasterUserInfoPacket {
     }
 }
 
-/// `Master::MachineRun` — opcode 9981: {u4 count; count x s2 name}. Count 0
-/// pops misc id 39 (wrong input data) and names that miss the item table
-/// pop misc id 38 (wrong recv data) through event 42; valid names are
-/// rolled into the rare-machine census of `Cheat_RareMachine.txt`, which
-/// is then opened in notepad.
+/// `Master::MachineRun` — opcode 9981: `{u4 count; count x u4 item_code}`. A zero count is the
+/// wrong-input reply; a code that misses the item table is the bad-data reply. Otherwise the
+/// client resolves each code through the item table and writes the winning-count census to its
+/// rare-machine report file.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MasterMachineRunPacket {
-    pub names: Vec<String>, // item names, count encoded on the wire
+    pub codes: Vec<u32>, // item codes, count encoded on the wire
 }
 
 impl MasterMachineRunPacket {
     pub fn encode(&self) -> Vec<u8> {
         assert!(
-            self.names.len() <= u32::MAX as usize,
-            "machine names overflow u4"
+            self.codes.len() <= u32::MAX as usize,
+            "machine codes overflow u4"
         );
         let mut writer = PacketWriter::new(game::MASTER_MACHINE_RUN);
-        writer.write_u32(self.names.len() as u32);
-        for name in &self.names {
-            writer.write_modern_utf8_string(name);
+        writer.write_u32(self.codes.len() as u32);
+        for code in &self.codes {
+            writer.write_u32(*code);
         }
         writer.finalize()
     }
 }
 
-/// `Master::RankItemRun` — opcode 9982: {u2 tier; u4 count; count x s2
-/// name}. Tier 0 pops misc id 36 (wrong input data) and names that miss the
-/// item table pop misc id 33 (item-rank error) through event 42; valid
-/// names roll into the `Cheat_ItemRank.txt` census, opened in notepad.
+/// `Master::RankItemRun` — opcode 9982: `{u2 selector; u4 count; count x u4 item_code}`. A zero
+/// selector ends the frame after the selector itself; it is the wrong-input reply. A code that
+/// misses the item table is the item-rank error, and resolved codes roll into the item-rank
+/// census file.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MasterRankItemRunPacket {
-    pub tier: u16, // unresolved rank tier selector
-    pub names: Vec<String>,
+    pub selector: u16, // rank tier selector; zero means "no census follows"
+    pub codes: Vec<u32>,
 }
 
 impl MasterRankItemRunPacket {
     pub fn encode(&self) -> Vec<u8> {
         assert!(
-            self.names.len() <= u32::MAX as usize,
-            "rank names overflow u4"
+            self.codes.len() <= u32::MAX as usize,
+            "rank codes overflow u4"
         );
         let mut writer = PacketWriter::new(game::MASTER_RANK_ITEM_RUN);
-        writer.write_u16(self.tier);
-        writer.write_u32(self.names.len() as u32);
-        for name in &self.names {
-            writer.write_modern_utf8_string(name);
+        writer.write_u16(self.selector);
+        if self.selector == 0 {
+            return writer.finalize();
+        }
+        writer.write_u32(self.codes.len() as u32);
+        for code in &self.codes {
+            writer.write_u32(*code);
         }
         writer.finalize()
     }
@@ -10183,33 +10185,46 @@ mod tests {
     }
 
     #[test]
-    fn master_machine_run_writes_counted_names() {
+    fn master_machine_run_writes_counted_codes() {
         let packet = MasterMachineRunPacket {
-            names: vec!["Ruler".to_string(), "Mon".to_string()],
+            codes: vec![165001, 165002],
         }
         .encode();
 
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MASTER_MACHINE_RUN);
-        assert_eq!(raw.payload.len(), 4 + 7 + 5);
+        assert_eq!(raw.payload.len(), 4 + 4 + 4);
         assert_eq!(&raw.payload[..4], &2u32.to_le_bytes());
-        assert_eq!(raw.payload[4..6], [5, 0]);
+        assert_eq!(&raw.payload[4..8], &165001u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &165002u32.to_le_bytes());
     }
 
     #[test]
-    fn master_rank_item_run_writes_tier_count_and_names() {
+    fn master_rank_item_run_writes_selector_count_and_codes() {
         let packet = MasterRankItemRunPacket {
-            tier: 2,
-            names: vec!["Mon".to_string()],
+            selector: 2,
+            codes: vec![165001],
         }
         .encode();
 
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MASTER_RANK_ITEM_RUN);
-        assert_eq!(raw.payload.len(), 2 + 4 + 2 + 3);
+        assert_eq!(raw.payload.len(), 2 + 4 + 4);
         assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
         assert_eq!(&raw.payload[2..6], &1u32.to_le_bytes());
-        assert_eq!(raw.payload[6..8], [3, 0]);
+        assert_eq!(&raw.payload[6..10], &165001u32.to_le_bytes());
+    }
+
+    #[test]
+    fn master_rank_item_run_zero_selector_ends_the_frame() {
+        let packet = MasterRankItemRunPacket {
+            selector: 0,
+            codes: vec![165001],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.payload, 0u16.to_le_bytes());
     }
 
     #[test]
