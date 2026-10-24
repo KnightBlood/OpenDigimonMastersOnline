@@ -3079,6 +3079,129 @@ impl Unknown1342Packet {
     }
 }
 
+/// Unnamed modern op 1343: an empty payload like 1342; the driver runs
+/// with label param 36.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unknown1343Packet {}
+
+impl Unknown1343Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::UNKNOWN_1343).finalize()
+    }
+}
+
+/// Unnamed modern op 2140: {u4 a; u8[71] blob; s2 name}; event 564 pops
+/// with the whole envelope. The 71-byte block stays opaque; unresolved
+/// fields keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Modern2140Packet {
+    pub a: u32,
+    pub blob: [u8; 71],
+    pub name: String, // modern utf8 string, u16 length prefix
+}
+
+impl Default for Modern2140Packet {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            blob: [0u8; 71],
+            name: String::new(),
+        }
+    }
+}
+
+impl Modern2140Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_2140);
+        writer.write_u32(self.a);
+        writer.write_bytes(&self.blob);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 2141: {u4 a; s2 name}; event 565 pops with the
+/// pair.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern2141Packet {
+    pub a: u32,
+    pub name: String, // modern utf8 string, u16 length prefix
+}
+
+impl Modern2141Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_2141);
+        writer.write_u32(self.a);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 2143: {u4 a; u1 count; s2 name}; the count replays
+/// the same u4 into count list nodes and event 566 pops with the
+/// envelope.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern2143Packet {
+    pub a: u32,
+    pub count: u8,
+    pub name: String, // modern utf8 string, u16 length prefix
+}
+
+impl Modern2143Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_2143);
+        writer.write_u32(self.a);
+        writer.write_u8(self.count);
+        writer.write_modern_utf8_string(&self.name);
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 3247: {u4 handler; u2 a; u4 b; u2 skipped; u1 c;
+/// u4 d} drives the item-table lookup and either the linked notice or
+/// the value toggle, closing with an empty event 476 ping. Unresolved
+/// fields keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unknown3247Packet {
+    pub handler: u32,
+    pub a: u16, // unresolved field
+    pub b: u32, // unresolved field
+    pub skipped: u16,
+    pub c: u8, // unresolved field
+    pub d: u32, // unresolved field
+}
+
+impl Unknown3247Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::UNKNOWN_3247);
+        writer.write_u32(self.handler);
+        writer.write_u16(self.a);
+        writer.write_u32(self.b);
+        writer.write_u16(self.skipped);
+        writer.write_u8(self.c);
+        writer.write_u32(self.d);
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 3248: {u4 handler; u4 value}; the entity list is
+/// scanned for the handler and the same toggler as 3247 runs, with an
+/// empty event 476 ping when the main monster matches.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unknown3248Packet {
+    pub handler: u32,
+    pub value: u32,
+}
+
+impl Unknown3248Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::UNKNOWN_3248);
+        writer.write_u32(self.handler);
+        writer.write_u32(self.value);
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -10590,6 +10713,89 @@ mod tests {
         let raw = PacketReader::from_frame(&unnamed).expect("frame should decode");
         assert_eq!(raw.packet_type, game::UNKNOWN_1342);
         assert!(raw.payload.is_empty());
+    }
+
+    #[test]
+    fn notice_family_and_skill_pairing_writes_encoded_bodies() {
+        let unnamed1343 = Unknown1343Packet {}.encode();
+        let raw = PacketReader::from_frame(&unnamed1343).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::UNKNOWN_1343);
+        assert!(raw.payload.is_empty());
+
+        let blob = {
+            let mut blob = [0u8; 71];
+            for (i, cell) in blob.iter_mut().enumerate() {
+                *cell = i as u8;
+            }
+            blob
+        };
+        let notice2140 = Modern2140Packet {
+            a: 1,
+            blob,
+            name: "go".to_string(),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&notice2140).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_2140);
+        // u4 + 71 + name (u16 len + 2 bytes)
+        assert_eq!(raw.payload.len(), 4 + 71 + 4);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(raw.payload[4], 0);
+        assert_eq!(raw.payload[74], 70);
+        assert_eq!(&raw.payload[75..77], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[77..79], b"go");
+
+        let notice2141 = Modern2141Packet {
+            a: 1,
+            name: "stay".to_string(),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&notice2141).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_2141);
+        assert_eq!(raw.payload.len(), 4 + 6);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &4u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], b"stay");
+
+        let notice2143 = Modern2143Packet {
+            a: 1,
+            count: 3,
+            name: String::new(),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&notice2143).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_2143);
+        assert_eq!(raw.payload.len(), 4 + 1 + 2);
+        assert_eq!(raw.payload[4], 3);
+        assert_eq!(&raw.payload[5..7], &[0, 0]);
+
+        let unknown3247 = Unknown3247Packet {
+            handler: 1,
+            a: 2,
+            b: 3,
+            skipped: 4,
+            c: 5,
+            d: 6,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&unknown3247).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::UNKNOWN_3247);
+        assert_eq!(raw.payload.len(), 17);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[10..12], &4u16.to_le_bytes());
+        assert_eq!(raw.payload[12], 5);
+        assert_eq!(&raw.payload[13..17], &6u32.to_le_bytes());
+
+        let unknown3248 = Unknown3248Packet {
+            handler: 1,
+            value: 2,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&unknown3248).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::UNKNOWN_3248);
+        assert_eq!(raw.payload, [1, 0, 0, 0, 2, 0, 0, 0]);
     }
 
     #[test]

@@ -83,6 +83,8 @@ pub use game::{
     MgrPlayTimeSetPacket,
     DebugInsufficientRangePacket, DebugLoseTargetPacket, ScannerReadPacket,
     ScannerReleasePacket, ScannerErrorPacket, Unknown1342Packet,
+    Unknown1343Packet, Modern2140Packet, Modern2141Packet,
+    Modern2143Packet, Unknown3247Packet, Unknown3248Packet,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

@@ -719,8 +719,24 @@ pub mod game {
     pub const SCANNER_ERROR: i16 = 2207;
     // Unnamed modern op 1342: no payload at all; the parser drives the
     // singleton label setter at param 35 plus the idle-action tick
-    // (44996 0xDD09F0).
+    // (44996 0xDD09F0). 1343 is the same driver at param 36 (0xDD0BA0).
     pub const UNKNOWN_1342: i16 = 1342;
+    pub const UNKNOWN_1343: i16 = 1343;
+    // Notice-family strings: 2140 {u4 a; u8[71] blob; s2 name} through
+    // event 564 (44996 0xD95910); 2141 {u4 a; s2 name} through event 565
+    // (0xD956F0); 2143 {u4 a; u1 count; s2 name} whose count replays the
+    // u4 into count list nodes and pops event 566 (0xD95A50).
+    pub const MODERN_2140: i16 = 2140;
+    pub const MODERN_2141: i16 = 2141;
+    pub const MODERN_2143: i16 = 2143;
+    // Unnamed skill-table pairing with 3248: 3247 {u4 handler; u2 a; u4
+    // b; u2 skipped; u1 c; u4 d} drives the item-table lookup and either
+    // the linked notice or the value toggle, both closing with an empty
+    // event 476 (44996 0xDB7210); 3248 {u4 handler; u4 value} runs the
+    // same toggler on the matched digimon and pings empty event 476 when
+    // the value path settles on the main monster (0xDB74D0).
+    pub const UNKNOWN_3247: i16 = 3247;
+    pub const UNKNOWN_3248: i16 = 3248;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;
