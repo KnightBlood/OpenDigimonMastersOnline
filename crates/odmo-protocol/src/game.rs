@@ -2974,6 +2974,111 @@ impl MgrPlayTimeSetPacket {
     }
 }
 
+/// `Debug::InsufficientRange` — opcode 3002: {u4 first; u4 second}. The
+/// first field feeds the #Distance# chat substitution and the second the
+/// #Range# one; event 42 pops the formatted chat string.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DebugInsufficientRangePacket {
+    pub first: u32,
+    pub second: u32,
+}
+
+impl DebugInsufficientRangePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DEBUG_INSUFFICIENT_RANGE);
+        writer.write_u32(self.first);
+        writer.write_u32(self.second);
+        writer.finalize()
+    }
+}
+
+/// `Debug::LoseTarget` — opcode 3001: {u4 skipped}; the u4 is consumed
+/// unstored with no store, no event, and no notification.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DebugLoseTargetPacket {
+    pub skipped: u32,
+}
+
+impl DebugLoseTargetPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::DEBUG_LOSE_TARGET);
+        writer.write_u32(self.skipped);
+        writer.finalize()
+    }
+}
+
+/// `Scanner::Read` — opcode 2204: {u2 anchor; u4 mode}; the body extends
+/// with {u4 value} once mode is neither 0 nor -1 (the microscope link
+/// modes) and with a final {u4 value2} when mode is 30001. Unresolved
+/// fields keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ScannerReadPacket {
+    pub anchor: u16,
+    pub mode: u32,
+    pub value: Option<u32>,
+    pub value2: Option<u32>,
+}
+
+impl ScannerReadPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SCANNER_READ);
+        writer.write_u16(self.anchor);
+        writer.write_u32(self.mode);
+        if let Some(value) = self.value {
+            writer.write_u32(value);
+        }
+        if let Some(value) = self.value2 {
+            writer.write_u32(value);
+        }
+        writer.finalize()
+    }
+}
+
+/// `Scanner::Release` — opcode 2206: {u4 flag; u4 a}; event 591 pops the
+/// one-byte {1} notice through the world handler when the flag is
+/// nonzero.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ScannerReleasePacket {
+    pub flag: u32,
+    pub a: u32,
+}
+
+impl ScannerReleasePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SCANNER_RELEASE);
+        writer.write_u32(self.flag);
+        writer.write_u32(self.a);
+        writer.finalize()
+    }
+}
+
+/// `Scanner::Error` — opcode 2207: {u4 skipped}; the u4 is consumed
+/// unstored, no store, no event, and no notification.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ScannerErrorPacket {
+    pub skipped: u32,
+}
+
+impl ScannerErrorPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::SCANNER_ERROR);
+        writer.write_u32(self.skipped);
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 1342: an empty payload; the parser only drives the
+/// singleton label setter at param 35 plus the idle-action tick from
+/// persistent client state, never the message body.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unknown1342Packet {}
+
+impl Unknown1342Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        PacketWriter::new(game::UNKNOWN_1342).finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -10425,6 +10530,66 @@ mod tests {
         let raw = PacketReader::from_frame(&play_time).expect("frame should decode");
         assert_eq!(raw.packet_type, game::MGR_PLAY_TIME_SET);
         assert_eq!(raw.payload, 5u32.to_le_bytes());
+    }
+
+    #[test]
+    fn debug_scanner_and_unnamed_pins_writes_encoded_bodies() {
+        let range = DebugInsufficientRangePacket {
+            first: 1,
+            second: 2,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&range).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DEBUG_INSUFFICIENT_RANGE);
+        assert_eq!(raw.payload, [1, 0, 0, 0, 2, 0, 0, 0]);
+
+        let lose = DebugLoseTargetPacket { skipped: 3 }.encode();
+        let raw = PacketReader::from_frame(&lose).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::DEBUG_LOSE_TARGET);
+        assert_eq!(raw.payload, 3u32.to_le_bytes());
+
+        // Chrome read without link values
+        let read = ScannerReadPacket {
+            anchor: 1,
+            mode: 2,
+            value: None,
+            value2: None,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&read).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SCANNER_READ);
+        assert_eq!(raw.payload.len(), 6);
+        assert_eq!(&raw.payload[..2], &1u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], &2u32.to_le_bytes());
+
+        // Chrome read, linked and with the 30001 extra value
+        let read = ScannerReadPacket {
+            anchor: 1,
+            mode: 30001,
+            value: Some(3),
+            value2: Some(4),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&read).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SCANNER_READ);
+        assert_eq!(raw.payload.len(), 14);
+        assert_eq!(&raw.payload[6..10], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[10..14], &4u32.to_le_bytes());
+
+        let release = ScannerReleasePacket { flag: 1, a: 2 }.encode();
+        let raw = PacketReader::from_frame(&release).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SCANNER_RELEASE);
+        assert_eq!(raw.payload, [1, 0, 0, 0, 2, 0, 0, 0]);
+
+        let error = ScannerErrorPacket { skipped: 4 }.encode();
+        let raw = PacketReader::from_frame(&error).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SCANNER_ERROR);
+        assert_eq!(raw.payload, 4u32.to_le_bytes());
+
+        let unnamed = Unknown1342Packet {}.encode();
+        let raw = PacketReader::from_frame(&unnamed).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::UNKNOWN_1342);
+        assert!(raw.payload.is_empty());
     }
 
     #[test]

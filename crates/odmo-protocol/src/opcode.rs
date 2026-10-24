@@ -702,6 +702,25 @@ pub mod game {
     pub const MINIEVENT_PIEMON_GAME_START: i16 = 5001;
     pub const MINIEVENT_PIEMON_GAME_END: i16 = 5002;
     pub const MGR_PLAY_TIME_SET: i16 = 9715;
+    // Debug notices: InsufficientRange {u4 first; u4 second} with the two
+    // fields feeding the #Distance# and #Range# chat substitutions and
+    // event 42 popping the formatted chat string (44996 0xD8E7A0);
+    // LoseTarget shares the bare {u4 skipped} advance used by
+    // Scanner::Error (0xD866F0) with no store and no event.
+    pub const DEBUG_INSUFFICIENT_RANGE: i16 = 3002;
+    pub const DEBUG_LOSE_TARGET: i16 = 3001;
+    // Scanner microscope flow: Read {u2 anchor; u4 mode} extends with
+    // {u4 value} once mode is neither 0 nor -1 and one more {u4 value2}
+    // when mode is 30001 (44996 0xDAF4C0); Release {u4 flag; u4 a} pops
+    // event 591 through the world handler when flag is nonzero
+    // (0xDAF6F0).
+    pub const SCANNER_READ: i16 = 2204;
+    pub const SCANNER_RELEASE: i16 = 2206;
+    pub const SCANNER_ERROR: i16 = 2207;
+    // Unnamed modern op 1342: no payload at all; the parser drives the
+    // singleton label setter at param 35 plus the idle-action tick
+    // (44996 0xDD09F0).
+    pub const UNKNOWN_1342: i16 = 1342;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;

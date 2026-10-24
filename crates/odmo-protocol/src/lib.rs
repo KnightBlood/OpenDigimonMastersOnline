@@ -81,6 +81,8 @@ pub use game::{
     TimeChargeImmediatePacket, TimeChargeCancelPacket,
     TimeChargeWithdrawPacket, PiemonGameStartPacket, PiemonGameEndPacket,
     MgrPlayTimeSetPacket,
+    DebugInsufficientRangePacket, DebugLoseTargetPacket, ScannerReadPacket,
+    ScannerReleasePacket, ScannerErrorPacket, Unknown1342Packet,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
