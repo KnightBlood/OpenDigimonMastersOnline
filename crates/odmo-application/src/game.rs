@@ -2862,19 +2862,19 @@ impl GameApplication {
             GameRequest::AddFriend { friend_name } => self.handle_add_friend(session, friend_name),
             GameRequest::FriendList => self.handle_friend_list(session),
             GameRequest::GuildAuthorityMaster { target_name } => {
-                self.handle_guild_authority(session, target_name, 1, "Master")
+                self.handle_guild_authority(session, target_name, 1)
             }
             GameRequest::GuildAuthoritySubMaster { target_name } => {
-                self.handle_guild_authority(session, target_name, 2, "SubMaster")
+                self.handle_guild_authority(session, target_name, 2)
             }
             GameRequest::GuildAuthorityMember { target_name } => {
-                self.handle_guild_authority(session, target_name, 4, "Member")
+                self.handle_guild_authority(session, target_name, 4)
             }
             GameRequest::GuildAuthorityNewMember { target_name } => {
-                self.handle_guild_authority(session, target_name, 5, "NewMember")
+                self.handle_guild_authority(session, target_name, 5)
             }
             GameRequest::GuildAuthorityDats { target_name } => {
-                self.handle_guild_authority(session, target_name, 3, "DatsMember")
+                self.handle_guild_authority(session, target_name, 3)
             }
             // ----- Spirit / DigiSummon purchase ---------------------------------
             GameRequest::SpiritToDigimon {
@@ -9520,7 +9520,6 @@ impl GameApplication {
         session: &GameSession,
         target_name: String,
         new_authority: u8,
-        description: &str,
     ) -> Result<Vec<Vec<u8>>, GameFlowError> {
         let character_id = session.character_id.ok_or(GameFlowError::Unauthenticated)?;
 
@@ -9575,7 +9574,6 @@ impl GameApplication {
         let packet = GuildPromotionDemotionPacket {
             opcode,
             member_name: member_name.clone(),
-            authority_description: description.to_string(),
         }
         .encode();
         if let Some(broadcast) = &self.broadcast {

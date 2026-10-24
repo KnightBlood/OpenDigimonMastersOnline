@@ -6440,16 +6440,16 @@ pub struct GuildInformationPacket {
 impl GuildInformationPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::GUILD_INFORMATION);
-        writer.write_string(&self.guild.name);
+        writer.write_modern_utf8_string(&self.guild.name);
         writer.write_i32(self.guild.id.min(i32::MAX as u32) as i32);
         writer.write_u8(self.guild.level);
         writer.write_i32(self.guild.current_experience);
-        writer.write_string(&self.guild.notice);
+        writer.write_modern_utf8_string(&self.guild.notice);
         writer.write_i32(self.guild.extra_slots);
 
         for authority in normalized_guild_authorities(&self.guild) {
-            writer.write_string(&authority.title);
-            writer.write_string(&authority.duty);
+            writer.write_modern_utf8_string(&authority.title);
+            writer.write_modern_utf8_string(&authority.duty);
         }
 
         let mut members = self.guild.members.clone();
@@ -6457,7 +6457,7 @@ impl GuildInformationPacket {
         for member in members {
             writer.write_u8(member.authority);
             writer.write_u8(guild_member_model(&member));
-            writer.write_string(&member.character_name);
+            writer.write_modern_utf8_string(&member.character_name);
             writer.write_i32(member.contribution);
             writer.write_u8(member.character_level);
 
@@ -6950,19 +6950,18 @@ impl GameEventNoticePacket {
 }
 
 /// `GuildPromotionDemotion` — opcodes 2115/2116/2117/2118/2119.
-/// Used by the per-rank authority change packets which all share the same payload shape.
+/// The per-rank authority change messages share one payload: the affected
+/// member's name. The rank label is chosen by the client from the opcode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuildPromotionDemotionPacket {
     pub opcode: i16,
     pub member_name: String,
-    pub authority_description: String,
 }
 
 impl GuildPromotionDemotionPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(self.opcode);
-        writer.write_string(&self.member_name);
-        writer.write_string(&self.authority_description);
+        writer.write_modern_utf8_string(&self.member_name);
         writer.finalize()
     }
 }
