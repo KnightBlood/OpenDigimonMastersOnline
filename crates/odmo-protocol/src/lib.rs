@@ -85,6 +85,8 @@ pub use game::{
     ScannerReleasePacket, ScannerErrorPacket, Unknown1342Packet,
     Unknown1343Packet, Modern2140Packet, Modern2141Packet,
     Modern2143Packet, Unknown3247Packet, Unknown3248Packet,
+    Unknown3249Packet, Modern3415Row, Modern3415Packet, Modern3417Row,
+    Modern3417Packet, Modern3418Row, Modern3418Packet, Modern3419Packet,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,

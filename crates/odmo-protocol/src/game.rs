@@ -3202,6 +3202,168 @@ impl Unknown3248Packet {
     }
 }
 
+/// Unnamed modern op 3249: {u4 a; u4 b; u1 c; u1 d; u1 e; u1 f} drives
+/// the evolution-list mutation and pops empty event 479. Unresolved
+/// fields keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unknown3249Packet {
+    pub a: u32, // unresolved field
+    pub b: u32, // unresolved field
+    pub c: u8,  // unresolved field
+    pub d: u8,  // unresolved field
+    pub e: u8,  // unresolved field
+    pub f: u8,  // unresolved field
+}
+
+impl Unknown3249Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::UNKNOWN_3249);
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.write_u8(self.c);
+        writer.write_u8(self.d);
+        writer.write_u8(self.e);
+        writer.write_u8(self.f);
+        writer.finalize()
+    }
+}
+
+/// Row of modern op 3415: {u4 c; u2 d}. Row fields are unresolved; they
+/// keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3415Row {
+    pub c: u32, // unresolved field
+    pub d: u16, // unresolved field
+}
+
+/// Unnamed modern op 3415: {u4 a; u4 b; u2 count; count x rows} drives
+/// the 16-byte list build and pops event 438.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3415Packet {
+    pub a: u32, // unresolved field
+    pub b: u32, // unresolved field
+    pub rows: Vec<Modern3415Row>,
+}
+
+impl Modern3415Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_3415);
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_u32(row.c);
+            writer.write_u16(row.d);
+        }
+        writer.finalize()
+    }
+}
+
+/// Row of modern op 3417: {u4 c; u4 d; u4 e; u1 f; u2 g; u2 h; u2 i;
+/// u1 j; u1 k; u1 l; u1 m; u1 n} built into the 36-byte list node. Row
+/// fields are unresolved; they keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3417Row {
+    pub c: u32, // unresolved field
+    pub d: u32, // unresolved field
+    pub e: u32, // unresolved field
+    pub f: u8,  // unresolved field
+    pub g: u16, // unresolved field
+    pub h: u16, // unresolved field
+    pub i: u16, // unresolved field
+    pub j: u8,  // unresolved field
+    pub k: u8,  // unresolved field
+    pub l: u8,  // unresolved field
+    pub m: u8,  // unresolved field
+    pub n: u8,  // unresolved field
+}
+
+impl Modern3417Row {
+    pub fn encode_into(&self, writer: &mut PacketWriter) {
+        writer.write_u32(self.c);
+        writer.write_u32(self.d);
+        writer.write_u32(self.e);
+        writer.write_u8(self.f);
+        writer.write_u16(self.g);
+        writer.write_u16(self.h);
+        writer.write_u16(self.i);
+        writer.write_u8(self.j);
+        writer.write_u8(self.k);
+        writer.write_u8(self.l);
+        writer.write_u8(self.m);
+        writer.write_u8(self.n);
+    }
+}
+
+/// Unnamed modern op 3417: {u4 a; u4 b; u2 count; count x rows} drives
+/// the 24-byte-row list build and pops event 439.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3417Packet {
+    pub a: u32, // unresolved field
+    pub b: u32, // unresolved field
+    pub rows: Vec<Modern3417Row>,
+}
+
+impl Modern3417Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_3417);
+        writer.write_u32(self.a);
+        writer.write_u32(self.b);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            row.encode_into(&mut writer);
+        }
+        writer.finalize()
+    }
+}
+
+/// Row of modern op 3418: {u4 a; u2 b}. Row fields are unresolved; they
+/// keep their read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3418Row {
+    pub a: u32, // unresolved field
+    pub b: u16, // unresolved field
+}
+
+/// Unnamed modern op 3418: {u2 count; count x rows} drives the 16-byte
+/// list build and pops event 440.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3418Packet {
+    pub rows: Vec<Modern3418Row>,
+}
+
+impl Modern3418Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_3418);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_u32(row.a);
+            writer.write_u16(row.b);
+        }
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 3419: {u4 a; u2 count; count x {u4 b}} drives the
+/// 16-byte list build of bare u4 entries and pops event 441.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3419Packet {
+    pub a: u32, // unresolved field
+    pub entries: Vec<u32>,
+}
+
+impl Modern3419Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_3419);
+        writer.write_u32(self.a);
+        writer.write_u16(self.entries.len() as u16);
+        for entry in &self.entries {
+            writer.write_u32(*entry);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -10796,6 +10958,107 @@ mod tests {
         let raw = PacketReader::from_frame(&unknown3248).expect("frame should decode");
         assert_eq!(raw.packet_type, game::UNKNOWN_3248);
         assert_eq!(raw.payload, [1, 0, 0, 0, 2, 0, 0, 0]);
+    }
+
+    #[test]
+    fn quad_and_cash_list_snapshots_write_encoded_bodies() {
+        let quad = Unknown3249Packet {
+            a: 1,
+            b: 2,
+            c: 3,
+            d: 4,
+            e: 5,
+            f: 6,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&quad).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::UNKNOWN_3249);
+        assert_eq!(raw.payload.len(), 12);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], [3, 4, 5, 6]);
+
+        let mut rows = Vec::new();
+        for i in 0..2 {
+            rows.push(Modern3415Row {
+                c: (i + 1) as u32,
+                d: (i + 9) as u16,
+            });
+        }
+        let list3415 = Modern3415Packet { a: 1, b: 2, rows }.encode();
+        let raw = PacketReader::from_frame(&list3415).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_3415);
+        // u4 + u4 + u2 count + 2 x (u4 c; u2 d)
+        assert_eq!(raw.payload.len(), 10 + 2 * 6);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..8], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[8..10], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[10..14], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[14..16], &9u16.to_le_bytes());
+        assert_eq!(&raw.payload[16..20], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[20..22], &10u16.to_le_bytes());
+
+        let mut rows = Vec::new();
+        for i in 0..2 {
+            rows.push(Modern3417Row {
+                c: (i + 1) as u32,
+                d: (i + 2) as u32,
+                e: (i + 3) as u32,
+                f: 4,
+                g: 5,
+                h: 6,
+                i: 7,
+                j: 8,
+                k: 9,
+                l: 10,
+                m: 11,
+                n: 12,
+            });
+        }
+        let list3417 = Modern3417Packet { a: 1, b: 2, rows }.encode();
+        let raw = PacketReader::from_frame(&list3417).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_3417);
+        // u4 + u4 + u2 count + 2 x 24-byte rows
+        assert_eq!(raw.payload.len(), 10 + 2 * 24);
+        assert_eq!(&raw.payload[10..14], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[14..18], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[18..22], &3u32.to_le_bytes());
+        assert_eq!(raw.payload[22], 4);
+        assert_eq!(&raw.payload[23..25], &5u16.to_le_bytes());
+        assert_eq!(&raw.payload[25..27], &6u16.to_le_bytes());
+        assert_eq!(&raw.payload[27..29], &7u16.to_le_bytes());
+        assert_eq!(&raw.payload[29..34], [8, 9, 10, 11, 12]);
+        assert_eq!(&raw.payload[34..38], &2u32.to_le_bytes());
+
+        let mut rows = Vec::new();
+        for i in 0..2 {
+            rows.push(Modern3418Row {
+                a: (i + 1) as u32,
+                b: (i + 7) as u16,
+            });
+        }
+        let list3418 = Modern3418Packet { rows }.encode();
+        let raw = PacketReader::from_frame(&list3418).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_3418);
+        assert_eq!(raw.payload.len(), 2 + 2 * 6);
+        assert_eq!(&raw.payload[..2], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..6], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[6..8], &7u16.to_le_bytes());
+        assert_eq!(&raw.payload[8..12], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[12..14], &8u16.to_le_bytes());
+
+        let mut entries = Vec::new();
+        for i in 0..2 {
+            entries.push((i + 1) as u32);
+        }
+        let list3419 = Modern3419Packet { a: 9, entries }.encode();
+        let raw = PacketReader::from_frame(&list3419).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_3419);
+        assert_eq!(raw.payload.len(), 4 + 2 + 2 * 4);
+        assert_eq!(&raw.payload[..4], &9u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[10..14], &2u32.to_le_bytes());
     }
 
     #[test]

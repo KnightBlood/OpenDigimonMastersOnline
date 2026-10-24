@@ -737,6 +737,20 @@ pub mod game {
     // the value path settles on the main monster (0xDB74D0).
     pub const UNKNOWN_3247: i16 = 3247;
     pub const UNKNOWN_3248: i16 = 3248;
+    // Unnamed quad {u4 a; u4 b; u1 c; u1 d; u1 e; u1 f} driving the
+    // evolution-list mutation and popping empty event 479 (44996
+    // 0xDCA6C0).
+    pub const UNKNOWN_3249: i16 = 3249;
+    // Cash-list snapshots: 3415 {u4 a; u4 b; u2 count; count x {u4 c;
+    // u2 d}} through event 438 (44996 0xDBFF50); 3417 {u4 a; u4 b; u2
+    // count; count x {u4 c; u4 d; u4 e; u1 f; u2 g; u2 h; u2 i; u1 j;
+    // u1 k; u1 l; u1 m; u1 n}} 24-byte rows through event 439 (0xDC02C0);
+    // 3418 {u2 count; count x {u4 a; u2 b}} through event 440 (0xDC07D0);
+    // 3419 {u4 a; u2 count; count x {u4 b}} through event 441 (0xDC09F0).
+    pub const MODERN_3415: i16 = 3415;
+    pub const MODERN_3417: i16 = 3417;
+    pub const MODERN_3418: i16 = 3418;
+    pub const MODERN_3419: i16 = 3419;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;
