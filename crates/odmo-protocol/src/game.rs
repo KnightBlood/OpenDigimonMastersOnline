@@ -8019,7 +8019,7 @@ impl TryFrom<RawPacket> for GameRequest {
                 })
             }
             game::CHAT_MESSAGE => {
-                let message = reader.read_string()?;
+                let message = reader.read_modern_utf8_string()?;
                 Ok(Self::ChatMessage { message })
             }
             game::WHISPER_MESSAGE => {
@@ -8505,12 +8505,12 @@ impl TryFrom<RawPacket> for GameRequest {
                 })
             }
             game::PARTY_INVITE => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::PartyInvite { target_name })
             }
             game::PARTY_INVITE_RESPONSE => {
                 let result_type = reader.read_i32()?;
-                let inviter_name = reader.read_string()?;
+                let inviter_name = reader.read_modern_utf8_string()?;
                 Ok(Self::PartyInviteResponse {
                     result_type,
                     inviter_name,
@@ -8521,7 +8521,7 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::PartyChat { message })
             }
             game::PARTY_KICK => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::PartyKick { target_name })
             }
             game::PARTY_LEAVE => Ok(Self::PartyLeave),
@@ -10960,6 +10960,58 @@ mod tests {
     }
 
     #[test]
+    fn chat_and_party_name_requests_decode_modern_text() {
+        let mut chat = Vec::new();
+        chat.extend_from_slice(&5_u16.to_le_bytes());
+        chat.extend_from_slice(b"hello");
+        assert_eq!(
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::CHAT_MESSAGE,
+                payload: chat,
+            })
+            .expect("chat should parse"),
+            GameRequest::ChatMessage {
+                message: "hello".to_string()
+            }
+        );
+
+        let mut name = Vec::new();
+        name.extend_from_slice(&4_u16.to_le_bytes());
+        name.extend_from_slice(b"Agun");
+        for opcode in [game::PARTY_INVITE, game::PARTY_KICK] {
+            let parsed = GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: opcode,
+                payload: name.clone(),
+            })
+            .unwrap_or_else(|error| panic!("opcode {opcode} should parse: {error}"));
+            match parsed {
+                GameRequest::PartyInvite { target_name }
+                | GameRequest::PartyKick { target_name } => assert_eq!(target_name, "Agun"),
+                other => panic!("opcode {opcode} decoded as {other:?}"),
+            }
+        }
+
+        let mut response = Vec::new();
+        response.extend_from_slice(&1_i32.to_le_bytes());
+        response.extend_from_slice(&4_u16.to_le_bytes());
+        response.extend_from_slice(b"Agun");
+        assert_eq!(
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::PARTY_INVITE_RESPONSE,
+                payload: response,
+            })
+            .expect("invite response should parse"),
+            GameRequest::PartyInviteResponse {
+                result_type: 1,
+                inviter_name: "Agun".to_string(),
+            }
+        );
+    }
+
+    #[test]
     fn guild_member_name_requests_decode_modern_text() {
         for opcode in [
             game::GUILD_KICK,
@@ -12636,12 +12688,9 @@ mod tests {
     }
 
     #[test]
-    fn party_invite_request_decodes_fork_client_payload() {
-        // The fork client still sends the legacy string shape for party
-        // invites; the write side (2301 GS2C) is where the modern shape
-        // applies.
+    fn party_invite_request_decodes_modern_client_payload() {
         let mut writer = PacketWriter::new(game::PARTY_INVITE);
-        writer.write_string("Matt");
+        writer.write_modern_utf8_string("Matt");
         let packet = writer.finalize();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         let request = GameRequest::try_from(raw).expect("request should decode");
@@ -12695,11 +12744,10 @@ mod tests {
     }
 
     #[test]
-    fn party_invite_response_decodes_fork_client_payload() {
-        // Fork client C2S shape (legacy string); see the invite-request note.
+    fn party_invite_response_decodes_modern_client_payload() {
         let mut writer = PacketWriter::new(game::PARTY_INVITE_RESPONSE);
         writer.write_i32(1);
-        writer.write_string("AdminTamer");
+        writer.write_modern_utf8_string("AdminTamer");
         let packet = writer.finalize();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         let request = GameRequest::try_from(raw).expect("request should decode");
@@ -12789,7 +12837,7 @@ mod tests {
     #[test]
     fn party_kick_request_decodes_modern_client_payload() {
         let mut writer = PacketWriter::new(game::PARTY_KICK);
-        writer.write_string("Matt");
+        writer.write_modern_utf8_string("Matt");
         let packet = writer.finalize();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         let request = GameRequest::try_from(raw).expect("request should decode");
