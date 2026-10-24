@@ -8580,7 +8580,7 @@ impl TryFrom<RawPacket> for GameRequest {
                 })
             }
             game::GUILD_KICK => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildKick { target_name })
             }
             game::GUILD_LEAVE => Ok(Self::GuildLeave),
@@ -8658,23 +8658,23 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::AddFriend { friend_name })
             }
             game::GUILD_AUTHORITY_MASTER => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildAuthorityMaster { target_name })
             }
             game::GUILD_AUTHORITY_SUBMASTER => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildAuthoritySubMaster { target_name })
             }
             game::GUILD_AUTHORITY_MEMBER => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildAuthorityMember { target_name })
             }
             game::GUILD_AUTHORITY_NEW_MEMBER => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildAuthorityNewMember { target_name })
             }
             game::GUILD_AUTHORITY_DATS => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildAuthorityDats { target_name })
             }
             game::SPIRIT_TO_DIGIMON => {
@@ -10957,6 +10957,40 @@ mod tests {
         assert_eq!(&raw.payload[..2], &2_u16.to_le_bytes());
         assert_eq!(&raw.payload[2..4], &3_u16.to_le_bytes());
         assert_eq!(&raw.payload[4..6], &7_u16.to_le_bytes());
+    }
+
+    #[test]
+    fn guild_member_name_requests_decode_modern_text() {
+        for opcode in [
+            game::GUILD_KICK,
+            game::GUILD_AUTHORITY_MASTER,
+            game::GUILD_AUTHORITY_SUBMASTER,
+            game::GUILD_AUTHORITY_DATS,
+            game::GUILD_AUTHORITY_MEMBER,
+            game::GUILD_AUTHORITY_NEW_MEMBER,
+        ] {
+            let mut payload = Vec::new();
+            payload.extend_from_slice(&7_u16.to_le_bytes());
+            payload.extend_from_slice(b"Dracmon");
+
+            let request = GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: opcode,
+                payload,
+            })
+            .unwrap_or_else(|error| panic!("opcode {opcode} should parse: {error}"));
+
+            let name = match request {
+                GameRequest::GuildKick { target_name } => target_name,
+                GameRequest::GuildAuthorityMaster { target_name }
+                | GameRequest::GuildAuthoritySubMaster { target_name }
+                | GameRequest::GuildAuthorityDats { target_name }
+                | GameRequest::GuildAuthorityMember { target_name }
+                | GameRequest::GuildAuthorityNewMember { target_name } => target_name,
+                other => panic!("opcode {opcode} decoded as {other:?}"),
+            };
+            assert_eq!(name, "Dracmon");
+        }
     }
 
     #[test]
