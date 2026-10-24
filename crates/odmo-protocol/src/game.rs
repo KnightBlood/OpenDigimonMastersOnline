@@ -713,6 +713,9 @@ impl SyncChatRecord {
                 }
             }
         }
+        // A sync frame lists records until a zero type ends it, so the reader never
+        // runs past the last record looking for one.
+        writer.write_u8(0);
         writer.finalize()
     }
 }
@@ -11533,6 +11536,7 @@ mod tests {
         .encode();
         let mut expected_chat = vec![7_u8, 1, 7, 0, 0, 0, 5, 0];
         expected_chat.extend_from_slice(b"hello");
+        expected_chat.push(0);
         assert_eq!(payload_of(&chat), expected_chat);
 
         let whisper = SyncChatRecord::Whisper(vec![SyncWhisperLine {
@@ -11548,6 +11552,7 @@ mod tests {
         expected_whisper.extend_from_slice(b"Kari");
         expected_whisper.extend_from_slice(&2_u16.to_le_bytes());
         expected_whisper.extend_from_slice(b"hi");
+        expected_whisper.push(0);
         assert_eq!(payload_of(&whisper), expected_whisper);
 
         // A shout carries no handler: the client resolves the speaker from the name.
@@ -11560,6 +11565,7 @@ mod tests {
         expected_shout.extend_from_slice(b"Matt");
         expected_shout.extend_from_slice(&4_u16.to_le_bytes());
         expected_shout.extend_from_slice(b"look");
+        expected_shout.push(0);
         assert_eq!(payload_of(&shout), expected_shout);
     }
 
