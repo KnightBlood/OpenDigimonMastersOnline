@@ -224,11 +224,11 @@ impl TryFrom<RawPacket> for CharacterRequest {
             }
             character::CREATE_CHARACTER => Ok(parse_create_character(&mut reader)?),
             character::DELETE_CHARACTER => {
-                let slot = reader.read_u8()?;
-                reader.seek(4)?;
+                // The list slot rides as a dword, then the second-password text in modern form.
+                let slot = reader.read_u32()? as u8;
                 Ok(Self::DeleteCharacter {
                     slot,
-                    validation: reader.read_string()?,
+                    validation: reader.read_modern_utf8_string()?,
                 })
             }
             character::GET_CHARACTER_POSITION => {
@@ -299,6 +299,29 @@ mod tests {
         assert_eq!(
             request,
             CharacterRequest::RequestCharacters { account_id: 1 }
+        );
+    }
+
+    #[test]
+    fn parse_delete_character_reads_dword_slot_and_modern_text() {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&2u32.to_le_bytes());
+        payload.extend_from_slice(&(4u16).to_le_bytes());
+        payload.extend_from_slice(b"pass");
+
+        let request = CharacterRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: character::DELETE_CHARACTER,
+            payload,
+        })
+        .expect("request should parse");
+
+        assert_eq!(
+            request,
+            CharacterRequest::DeleteCharacter {
+                slot: 2,
+                validation: "pass".to_string(),
+            }
         );
     }
 
