@@ -240,12 +240,12 @@ impl TryFrom<RawPacket> for AccountRequest {
 }
 
 fn parse_login_payload(reader: &mut PacketReader) -> Result<LoginPayload, ProtocolError> {
-    // Client sends: [u4 net_version][string user_type][string username][u1 dummy][string password]
+    // Client sends: [u4 net_version][text user_type][text username][u1 dummy][text password]
     let _net_version = reader.read_u32()?;
-    let _user_type = read_sized_ascii(reader)?;
-    let username = read_sized_ascii(reader)?;
+    let _user_type = reader.read_string()?;
+    let username = reader.read_string()?;
     let _dummy = reader.read_u8()?;
-    let password = read_sized_ascii(reader)?;
+    let password = reader.read_string()?;
 
     Ok(LoginPayload {
         username,
@@ -253,12 +253,6 @@ fn parse_login_payload(reader: &mut PacketReader) -> Result<LoginPayload, Protoc
         cpu: String::new(),
         gpu: String::new(),
     })
-}
-
-fn read_sized_ascii(reader: &mut PacketReader) -> Result<String, ProtocolError> {
-    let size = reader.read_u8()? as usize;
-    let bytes = reader.read_bytes(size)?;
-    Ok(String::from_utf8_lossy(&bytes).trim().to_string())
 }
 
 fn parse_secondary_password_check(
@@ -323,17 +317,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_login_payload_uses_legacy_offsets() {
-        // Client sends: [u4 net_version][string user_type][string username][u1 dummy][string password]
+    fn parse_login_payload_uses_terminated_text_fields() {
+        // Client sends: [u4 net_version][text user_type][text username][u1 dummy][text password]
+        // Each text field is [u8 byte count][bytes][u8 0].
         let mut payload = Vec::new();
         payload.extend_from_slice(&1234_u32.to_le_bytes()); // net_version
         payload.push(4);
         payload.extend_from_slice(b"test"); // user_type
+        payload.push(0);
         payload.push(4);
         payload.extend_from_slice(b"demo"); // username
+        payload.push(0);
         payload.push(0); // dummy
         payload.push(4);
         payload.extend_from_slice(b"pass"); // password
+        payload.push(0);
 
         let raw = RawPacket {
             length: 0,
