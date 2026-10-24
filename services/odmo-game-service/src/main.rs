@@ -73,6 +73,20 @@ impl odmo_application::BroadcastSink for SessionBroadcast {
         Ok(())
     }
 
+    fn send_to_all_except(
+        &self,
+        exclude_character_id: u64,
+        packet: &[u8],
+    ) -> anyhow::Result<()> {
+        for entry in self.senders.iter() {
+            let cid = *entry.key();
+            if cid != exclude_character_id {
+                let _ = entry.value().try_send(packet.to_vec());
+            }
+        }
+        Ok(())
+    }
+
     fn update_location(&self, character_id: u64, map_id: i16, channel: u8) {
         self.locations.insert(character_id, (map_id, channel));
     }

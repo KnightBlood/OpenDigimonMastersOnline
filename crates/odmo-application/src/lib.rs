@@ -19,6 +19,13 @@ pub trait BroadcastSink: Send + Sync {
         exclude_character_id: u64,
         packet: &[u8],
     ) -> anyhow::Result<()>;
+    /// Deliver to every connected session regardless of map and channel, except
+    /// the sender. Channels that span the whole server use this.
+    fn send_to_all_except(
+        &self,
+        exclude_character_id: u64,
+        packet: &[u8],
+    ) -> anyhow::Result<()>;
     /// Update the character's known map location for broadcast filtering.
     fn update_location(&self, character_id: u64, map_id: i16, channel: u8);
 }

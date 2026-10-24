@@ -2164,7 +2164,7 @@ impl GameApplication {
                 category: _,
                 extra_slot,
             } => self.handle_extra_inventory_use(session, extra_slot),
-            // ChatMessage — echo chat back to client (opcode 1006)
+            // ChatMessage — general chat is spoken aloud to everyone nearby
             GameRequest::ChatMessage { message } => {
                 let character_id = session.character_id.ok_or(GameFlowError::Unauthenticated)?;
                 let character = self
@@ -2173,15 +2173,26 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                Ok(vec![
-                    SyncChatRecord::Chat(vec![SyncChatLine {
-                        handler: character.general_handler,
-                        message,
-                    }])
-                    .encode(),
-                ])
+                let packet = SyncChatRecord::Chat(vec![SyncChatLine {
+                    handler: character.general_handler,
+                    message,
+                }])
+                .encode();
+
+                // The speaker only echoes locally while offline, so its own copy is the
+                // returned packet and nearby tamers get it through the sink.
+                if let Some(broadcast) = &self.broadcast {
+                    let _ = broadcast.send_to_visible(
+                        character.map_id,
+                        character.channel,
+                        character.id,
+                        &packet,
+                    );
+                }
+
+                Ok(vec![packet])
             }
-            // WhisperMessage — echo whisper back to client
+            // WhisperMessage — deliver by result code: 3 both peers, otherwise the sender
             GameRequest::WhisperMessage {
                 target_name,
                 message,
@@ -2193,17 +2204,41 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                Ok(vec![
-                    SyncChatRecord::Whisper(vec![SyncWhisperLine {
-                        result: 0, // delivered
-                        sender: character.name,
-                        receiver: target_name,
-                        message,
-                    }])
-                    .encode(),
-                ])
+                let target = self
+                    .repository
+                    .character_by_name(&target_name)
+                    .map_err(|error| GameFlowError::Storage(error.to_string()))?;
+
+                // The client turns each code into its own message, so an unknown name and a
+                // known-but-absent tamer must not be reported as a delivered whisper.
+                let (result, target_id) = match target {
+                    Some(found)
+                        if self
+                            .broadcast
+                            .as_ref()
+                            .is_some_and(|b| b.is_online(found.id)) =>
+                    {
+                        (3, Some(found.id))
+                    }
+                    Some(_) => (0, None),
+                    None => (2, None),
+                };
+
+                let packet = SyncChatRecord::Whisper(vec![SyncWhisperLine {
+                    result,
+                    sender: character.name,
+                    receiver: target_name,
+                    message,
+                }])
+                .encode();
+
+                if let (Some(broadcast), Some(id)) = (&self.broadcast, target_id) {
+                    let _ = broadcast.send_to(id, &packet);
+                }
+
+                Ok(vec![packet])
             }
-            // ShoutMessage — echo shout back to client
+            // ShoutMessage — a shout carries the speaker's name to the whole server
             GameRequest::ShoutMessage { message } => {
                 let character_id = session.character_id.ok_or(GameFlowError::Unauthenticated)?;
                 let character = self
@@ -2212,15 +2247,21 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                Ok(vec![
-                    SyncChatRecord::Shout(vec![SyncNamedLine {
-                        sender: character.name,
-                        message,
-                    }])
-                    .encode(),
-                ])
+                let packet = SyncChatRecord::Shout(vec![SyncNamedLine {
+                    sender: character.name,
+                    message,
+                }])
+                .encode();
+
+                // A shout is not map-scoped: every connected tamer hears it, and the
+                // speaker's own copy stays in the returned packet.
+                if let Some(broadcast) = &self.broadcast {
+                    let _ = broadcast.send_to_all_except(character.id, &packet);
+                }
+
+                Ok(vec![packet])
             }
-            // MegaphoneMessage — echo megaphone back to client
+            // MegaphoneMessage — a branded shout, delivered on the same channel
             GameRequest::MegaphoneMessage {
                 mode: _,
                 item_code: _,
@@ -2234,17 +2275,20 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                // The branded shout record also carries a style byte that selects the
-                // message colour, and the client drops the line unless the item code
-                // resolves to a shouter, so the plain shout form stays until that
-                // style source is settled.
-                Ok(vec![
-                    SyncChatRecord::Shout(vec![SyncNamedLine {
-                        sender: character.name,
-                        message,
-                    }])
-                    .encode(),
-                ])
+                // The branded record also carries a style byte that selects the message
+                // colour, and the client drops the line unless the item code resolves to a
+                // shouter, so the plain shout form stays until that style source is settled.
+                let packet = SyncChatRecord::Shout(vec![SyncNamedLine {
+                    sender: character.name,
+                    message,
+                }])
+                .encode();
+
+                if let Some(broadcast) = &self.broadcast {
+                    let _ = broadcast.send_to_all_except(character.id, &packet);
+                }
+
+                Ok(vec![packet])
             }
             // TamerReaction — echo reaction back to client
             GameRequest::TamerReaction { reaction_type } => {
@@ -10490,6 +10534,9 @@ mod tests {
     struct RecordingBroadcast {
         online: RwLock<std::collections::HashSet<u64>>,
         packets: RwLock<HashMap<u64, Vec<Vec<u8>>>>,
+        /// Scoped visible deliveries, recorded per call so tests can check the
+        /// map, channel and exclusion without asserting on per-session queues.
+        visible: RwLock<Vec<(i16, u8, u64, Vec<u8>)>>,
     }
 
     impl RecordingBroadcast {
@@ -10497,6 +10544,7 @@ mod tests {
             Self {
                 online: RwLock::new(online.into_iter().collect::<std::collections::HashSet<_>>()),
                 packets: RwLock::new(HashMap::new()),
+                visible: RwLock::new(Vec::new()),
             }
         }
 
@@ -10530,11 +10578,34 @@ mod tests {
 
         fn send_to_visible(
             &self,
-            _map_id: i16,
-            _channel: u8,
-            _exclude_character_id: u64,
-            _packet: &[u8],
+            map_id: i16,
+            channel: u8,
+            exclude_character_id: u64,
+            packet: &[u8],
         ) -> anyhow::Result<()> {
+            self.visible
+                .write()
+                .expect("broadcast poisoned")
+                .push((map_id, channel, exclude_character_id, packet.to_vec()));
+            Ok(())
+        }
+
+        fn send_to_all_except(
+            &self,
+            exclude_character_id: u64,
+            packet: &[u8],
+        ) -> anyhow::Result<()> {
+            let recipients: Vec<u64> = self
+                .online
+                .read()
+                .expect("broadcast poisoned")
+                .iter()
+                .copied()
+                .filter(|cid| *cid != exclude_character_id)
+                .collect();
+            for cid in recipients {
+                self.send_to(cid, packet)?;
+            }
             Ok(())
         }
 
@@ -12581,6 +12652,150 @@ mod tests {
             target_types.contains(&odmo_protocol::opcode::game::PARTY_KICK),
             "kicked member should receive kick packet",
         );
+    }
+
+    #[test]
+    fn general_chat_reaches_the_speaker_and_nearby_tamers() {
+        let repo = Arc::new(InMemoryCharacterRepository::demo());
+        let broadcast = Arc::new(RecordingBroadcast::with_online([100, 200]));
+        let app = GameApplication::new(
+            GameServiceConfig {
+                portal_state_dir: unique_test_dir("chat-general"),
+            },
+            repo,
+        )
+        .with_broadcast(broadcast.clone());
+
+        let mut session = GameSession::new(1);
+        session.character_id = Some(100);
+        let responses = app
+            .handle_request(
+                &mut session,
+                GameRequest::ChatMessage {
+                    message: "hello".to_string(),
+                },
+            )
+            .expect("chat should succeed");
+
+        let speaker = PacketReader::from_frame(&responses[0]).expect("frame should decode");
+        assert_eq!(
+            speaker.packet_type,
+            odmo_protocol::opcode::game::CHAT_MESSAGE_RESPONSE
+        );
+        assert_eq!(&speaker.payload[..2], &[7, 1], "record 7 carrying one line");
+
+        let visible = broadcast.visible.read().expect("visible poisoned");
+        assert_eq!(visible.len(), 1, "one scoped delivery for nearby tamers");
+        let (_, _, excluded, frame) = &visible[0];
+        assert_eq!(*excluded, 100, "the speaker keeps its own copy");
+        assert_eq!(frame, &responses[0], "nearby tamers get the same record");
+    }
+
+    #[test]
+    fn shout_reaches_every_connected_tamer() {
+        let repo = Arc::new(InMemoryCharacterRepository::demo());
+        let broadcast = Arc::new(RecordingBroadcast::with_online([100, 200, 300]));
+        let app = GameApplication::new(
+            GameServiceConfig {
+                portal_state_dir: unique_test_dir("chat-shout"),
+            },
+            repo,
+        )
+        .with_broadcast(broadcast.clone());
+
+        let mut session = GameSession::new(1);
+        session.character_id = Some(100);
+        let responses = app
+            .handle_request(
+                &mut session,
+                GameRequest::ShoutMessage {
+                    message: "gather".to_string(),
+                },
+            )
+            .expect("shout should succeed");
+
+        let speaker = PacketReader::from_frame(&responses[0]).expect("frame should decode");
+        assert_eq!(&speaker.payload[..2], &[11, 1], "record 11 carrying one line");
+
+        for listener in [200, 300] {
+            let frames = broadcast.packets_for(listener);
+            assert_eq!(frames.len(), 1, "tamer {listener} should hear the shout");
+            let decoded = PacketReader::from_frame(&frames[0]).expect("frame should decode");
+            assert_eq!(
+                decoded.payload, speaker.payload,
+                "tamer {listener} should read the same record as the speaker",
+            );
+        }
+
+        assert!(
+            broadcast.packets_for(100).is_empty(),
+            "the speaker is served by the returned packet, not the sink",
+        );
+    }
+
+    #[test]
+    fn whisper_reports_delivery_by_result_code() {
+        let repo = Arc::new(InMemoryCharacterRepository::demo());
+        let broadcast = Arc::new(RecordingBroadcast::with_online([100, 200]));
+        let app = GameApplication::new(
+            GameServiceConfig {
+                portal_state_dir: unique_test_dir("chat-whisper"),
+            },
+            repo,
+        )
+        .with_broadcast(broadcast.clone());
+
+        let mut session = GameSession::new(1);
+        session.character_id = Some(100);
+        let responses = app
+            .handle_request(
+                &mut session,
+                GameRequest::WhisperMessage {
+                    target_name: "Matt".to_string(),
+                    message: "over here".to_string(),
+                },
+            )
+            .expect("whisper should succeed");
+
+        let speaker = PacketReader::from_frame(&responses[0]).expect("frame should decode");
+        assert_eq!(&speaker.payload[..3], &[8, 1, 3], "result 3 means delivered");
+
+        let target_frames = broadcast.packets_for(200);
+        assert_eq!(target_frames.len(), 1, "the target receives the whisper");
+        let target = PacketReader::from_frame(&target_frames[0]).expect("frame should decode");
+        assert_eq!(
+            target.payload, speaker.payload,
+            "both peers read the same record",
+        );
+
+        // An offline tamer and an unknown name must not be reported as delivered.
+        let offline_app = GameApplication::new(
+            GameServiceConfig {
+                portal_state_dir: unique_test_dir("chat-whisper-offline"),
+            },
+            Arc::new(InMemoryCharacterRepository::demo()),
+        )
+        .with_broadcast(Arc::new(RecordingBroadcast::with_online([100])));
+
+        for (target_name, expected_result) in [("Matt", 0_u8), ("Nobody", 2)] {
+            let mut offline_session = GameSession::new(1);
+            offline_session.character_id = Some(100);
+            let responses = offline_app
+                .handle_request(
+                    &mut offline_session,
+                    GameRequest::WhisperMessage {
+                        target_name: target_name.to_string(),
+                        message: "still here".to_string(),
+                    },
+                )
+                .expect("whisper should succeed");
+            let frame = PacketReader::from_frame(&responses[0]).expect("frame should decode");
+            assert_eq!(
+                &frame.payload[..3],
+                &[8, 1, expected_result],
+                "{target_name} should report result {expected_result}",
+            );
+        }
     }
 
     #[test]
