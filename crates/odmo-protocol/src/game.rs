@@ -442,8 +442,9 @@ pub enum GameRequest {
     },
     GuildHistory,
     GuildSetTitle {
-        member_id: i32,
+        authority_class: i32,
         title: String,
+        duty: String,
     },
     TradeRequest {
         target_handler: u32,
@@ -8593,9 +8594,14 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::GUILD_HISTORY => Ok(Self::GuildHistory),
             game::GUILD_SET_TITLE => {
-                let member_id = reader.read_i32()?;
-                let title = reader.read_string()?;
-                Ok(Self::GuildSetTitle { member_id, title })
+                let authority_class = reader.read_i32()?;
+                let title = reader.read_modern_utf8_string()?;
+                let duty = reader.read_modern_utf8_string()?;
+                Ok(Self::GuildSetTitle {
+                    authority_class,
+                    title,
+                    duty,
+                })
             }
             game::TRADE_REQUEST => {
                 let target_handler = reader.read_u32()?;
@@ -10951,6 +10957,46 @@ mod tests {
         assert_eq!(&raw.payload[..2], &2_u16.to_le_bytes());
         assert_eq!(&raw.payload[2..4], &3_u16.to_le_bytes());
         assert_eq!(&raw.payload[4..6], &7_u16.to_le_bytes());
+    }
+
+    #[test]
+    fn guild_set_title_decodes_modern_text_fields() {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&2_i32.to_le_bytes());
+        payload.extend_from_slice(&4_u16.to_le_bytes());
+        payload.extend_from_slice(b"Lord");
+        payload.extend_from_slice(&5_u16.to_le_bytes());
+        payload.extend_from_slice(b"Leads");
+
+        let request = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::GUILD_SET_TITLE,
+            payload,
+        })
+        .expect("title request should parse");
+        assert_eq!(
+            request,
+            GameRequest::GuildSetTitle {
+                authority_class: 2,
+                title: "Lord".to_string(),
+                duty: "Leads".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn guild_set_title_rejects_text_above_the_client_bound() {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&0_i32.to_le_bytes());
+        payload.extend_from_slice(&1000_u16.to_le_bytes());
+
+        let error = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::GUILD_SET_TITLE,
+            payload,
+        })
+        .expect_err("a length beyond the read bound must be rejected");
+        assert!(matches!(error, ProtocolError::InvalidTextLength(1000)));
     }
 
     #[test]

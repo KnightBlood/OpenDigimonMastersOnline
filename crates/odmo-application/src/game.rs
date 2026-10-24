@@ -2810,9 +2810,10 @@ impl GameApplication {
             // GuildHistory — respond with the in-memory history (or empty if no guild)
             GameRequest::GuildHistory => self.handle_guild_history(session),
             GameRequest::GuildSetTitle {
-                member_id: _,
+                authority_class,
                 title,
-            } => self.handle_guild_set_title(session, title),
+                duty,
+            } => self.handle_guild_set_title(session, authority_class, title, duty),
             // ----- Trade slice ---------------------------------------------------
             // TradeRequest — open a pending request between the inviter and the target.
             GameRequest::TradeRequest { target_handler } => {
@@ -9522,9 +9523,18 @@ impl GameApplication {
     fn handle_guild_set_title(
         &self,
         session: &GameSession,
+        authority_class: i32,
         title: String,
+        duty: String,
     ) -> Result<Vec<Vec<u8>>, GameFlowError> {
         let character_id = session.character_id.ok_or(GameFlowError::Unauthenticated)?;
+        // The class selects one of the five rank labels, so an out-of-range
+        // value cannot be forwarded as a u8 on the broadcast.
+        let authority_class =
+            u8::try_from(authority_class).ok().filter(|class| *class < 5);
+        let Some(authority_class) = authority_class else {
+            return Ok(vec![]);
+        };
         let in_guild = self
             .guild_runtime
             .read()
@@ -9536,9 +9546,9 @@ impl GameApplication {
         }
         Ok(vec![
             GuildAuthorityUpdatePacket {
-                authority_class: 4,
-                title: title.clone(),
-                duty: title,
+                authority_class,
+                title,
+                duty,
             }
             .encode(),
         ])

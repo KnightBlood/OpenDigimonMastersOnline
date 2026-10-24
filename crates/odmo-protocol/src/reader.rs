@@ -142,6 +142,24 @@ impl PacketReader {
         Ok(String::from_utf8_lossy(&bytes).trim().to_string())
     }
 
+    /// Read a variable-length text field: `[u16 byte-length][UTF-8 bytes]` with no
+    /// terminator, bounded at 512 bytes. A zero length yields an empty value; an
+    /// over-bound length is a protocol error rather than a truncation, so a
+    /// misframed stream cannot be silently absorbed.
+    pub fn read_modern_utf8_string(&mut self) -> Result<String, ProtocolError> {
+        let len = self.read_u16()? as usize;
+        if len > 512 {
+            return Err(ProtocolError::InvalidTextLength(len));
+        }
+        if len == 0 {
+            return Ok(String::new());
+        }
+        let bytes = self.read_bytes(len)?;
+        String::from_utf8(bytes)
+            .map(|value| value.trim().to_string())
+            .map_err(|_| ProtocolError::InvalidTextEncoding)
+    }
+
     /// Read a length-prefixed UTF-16LE string: `[u8 code-unit count][units...][u16 0]`.
     /// The wide analogue of `read_string`; the count is in UTF-16 code units.
     pub fn read_wide_string(&mut self) -> Result<String, ProtocolError> {

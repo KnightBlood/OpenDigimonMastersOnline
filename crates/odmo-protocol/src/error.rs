@@ -18,4 +18,8 @@ pub enum ProtocolError {
     InvalidCharacterPacketType(i16),
     #[error("invalid game packet type {0}")]
     InvalidGamePacketType(i16),
+    #[error("text field length {0} exceeds the 512 byte bound")]
+    InvalidTextLength(usize),
+    #[error("text field is not valid UTF-8")]
+    InvalidTextEncoding,
 }
