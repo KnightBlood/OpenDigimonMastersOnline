@@ -14,6 +14,11 @@ use crate::{
     writer::PacketWriter,
 };
 
+/// Client → server game requests, one variant per opcode.
+///
+/// Wire notation used by the per-variant comments: `text` is
+/// `[u2 byte-length][UTF-8 bytes]` with no terminator, bounded at 512 bytes;
+/// `wstring` is the older `[u1 byte-length][bytes][0x00]` form.
 #[derive(Debug, Clone, PartialEq)]
 pub enum GameRequest {
     Connection {
@@ -409,27 +414,28 @@ pub enum GameRequest {
         disp_rare_grade: u8,
     },
     PartyDismiss,
-    /// `GuildCreate` C→S — opcode 2101. `[wstring guild_name][i32 inven_slot][i32 npc_id]`.
+    /// `GuildCreate` C→S — opcode 2101. `[text guild_name][u2 inven_slot][u4 npc_id]`.
     GuildCreate {
         guild_name: String,
-        inven_slot: i32,
-        npc_id: i32,
+        inven_slot: u16,
+        npc_id: u32,
     },
     GuildDelete,
+    /// `GuildReqAdd` C→S — opcode 2109. `[text target_name]`.
     GuildInvite {
         target_name: String,
     },
-    /// `GuildAllow` C→S — opcode 2103. `[u32 certified_code][wstring tamer_name]`.
+    /// `GuildAllow` C→S — opcode 2103. `[u4 certified_code][text tamer_name]`.
     GuildInviteAccept {
         certified_code: u32,
         target_name: String,
     },
-    /// `GuildReject` C→S — opcode 2105. `[u32 certified_code][wstring tamer_name]`.
+    /// `GuildReject` C→S — opcode 2105. `[u4 certified_code][text tamer_name]`.
     GuildInviteDeny {
         certified_code: u32,
         target_name: String,
     },
-    /// `GuildDelete` C→S — opcode 2106 (KICK). `[wstring tamer_name]`.
+    /// `GuildDelete` C→S — opcode 2106 (KICK). `[text tamer_name]`.
     GuildKick {
         target_name: String,
     },
@@ -493,23 +499,23 @@ pub enum GameRequest {
         friend_name: String,
     },
     FriendList,
-    /// `GuildToMaster` C→S — opcode 2119. `[wstring tamer_name]`.
+    /// `GuildToMaster` C→S — opcode 2119. `[text tamer_name]`.
     GuildAuthorityMaster {
         target_name: String,
     },
-    /// `GuildToSubMaster` C→S — opcode 2118. `[wstring tamer_name]`.
+    /// `GuildToSubMaster` C→S — opcode 2118. `[text tamer_name]`.
     GuildAuthoritySubMaster {
         target_name: String,
     },
-    /// `GuildToMember` C→S — opcode 2116. `[wstring tamer_name]`.
+    /// `GuildToMember` C→S — opcode 2116. `[text tamer_name]`.
     GuildAuthorityMember {
         target_name: String,
     },
-    /// `GuildToSubMember` C→S — opcode 2115. `[wstring tamer_name]`.
+    /// `GuildToSubMember` C→S — opcode 2115. `[text tamer_name]`.
     GuildAuthorityNewMember {
         target_name: String,
     },
-    /// `GuildToDatsMember` C→S — opcode 2117. `[wstring tamer_name]`.
+    /// `GuildToDatsMember` C→S — opcode 2117. `[text tamer_name]`.
     GuildAuthorityDats {
         target_name: String,
     },
@@ -8541,17 +8547,9 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::PARTY_DISMISS => Ok(Self::PartyDismiss),
             game::GUILD_CREATE => {
-                let guild_name = reader.read_string()?;
-                let inven_slot = if reader.remaining_len() >= 4 {
-                    reader.read_i32()?
-                } else {
-                    0
-                };
-                let npc_id = if reader.remaining_len() >= 4 {
-                    reader.read_i32()?
-                } else {
-                    0
-                };
+                let guild_name = reader.read_modern_utf8_string()?;
+                let inven_slot = reader.read_u16()?;
+                let npc_id = reader.read_u32()?;
                 Ok(Self::GuildCreate {
                     guild_name,
                     inven_slot,
@@ -8560,12 +8558,12 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::GUILD_DELETE => Ok(Self::GuildDelete),
             game::GUILD_INVITE => {
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildInvite { target_name })
             }
             game::GUILD_INVITE_ACCEPT => {
                 let certified_code = reader.read_u32()?;
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildInviteAccept {
                     certified_code,
                     target_name,
@@ -8573,7 +8571,7 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::GUILD_INVITE_DENY => {
                 let certified_code = reader.read_u32()?;
-                let target_name = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildInviteDeny {
                     certified_code,
                     target_name,
@@ -11089,6 +11087,97 @@ mod tests {
             };
             assert_eq!(name, "Dracmon");
         }
+    }
+
+    #[test]
+    fn guild_join_requests_decode_modern_text_and_scalar_widths() {
+        // The creation slot is a 16-bit field, so reading it as 32 bits would also
+        // consume the first two bytes of the following npc id.
+        let mut create = Vec::new();
+        create.extend_from_slice(&5_u16.to_le_bytes());
+        create.extend_from_slice(b"Trust");
+        create.extend_from_slice(&12_u16.to_le_bytes());
+        create.extend_from_slice(&4001_u32.to_le_bytes());
+        assert_eq!(
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::GUILD_CREATE,
+                payload: create,
+            })
+            .expect("guild create should parse"),
+            GameRequest::GuildCreate {
+                guild_name: "Trust".to_string(),
+                inven_slot: 12,
+                npc_id: 4001,
+            }
+        );
+
+        let mut invite = Vec::new();
+        invite.extend_from_slice(&7_u16.to_le_bytes());
+        invite.extend_from_slice(b"Dracmon");
+        assert_eq!(
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::GUILD_INVITE,
+                payload: invite,
+            })
+            .expect("guild invite should parse"),
+            GameRequest::GuildInvite {
+                target_name: "Dracmon".to_string()
+            }
+        );
+
+        // Allow and reject share `[u4 certified_code][text tamer_name]`.
+        for opcode in [game::GUILD_INVITE_ACCEPT, game::GUILD_INVITE_DENY] {
+            let mut payload = Vec::new();
+            payload.extend_from_slice(&0x1234_u32.to_le_bytes());
+            payload.extend_from_slice(&7_u16.to_le_bytes());
+            payload.extend_from_slice(b"Dracmon");
+
+            let request = GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: opcode,
+                payload,
+            })
+            .unwrap_or_else(|error| panic!("opcode {opcode} should parse: {error}"));
+
+            match request {
+                GameRequest::GuildInviteAccept {
+                    certified_code,
+                    target_name,
+                }
+                | GameRequest::GuildInviteDeny {
+                    certified_code,
+                    target_name,
+                } => {
+                    assert_eq!(certified_code, 0x1234);
+                    assert_eq!(target_name, "Dracmon");
+                }
+                other => panic!("opcode {opcode} decoded as {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn guild_join_requests_reject_the_legacy_text_form() {
+        // `[u1 len][bytes][0x00]` reads as an out-of-bound u16 count, so a stream that
+        // was framed the old way fails loudly instead of decoding a truncated name.
+        let mut payload = vec![5_u8];
+        payload.extend_from_slice(b"Trust");
+        payload.push(0);
+        payload.extend_from_slice(&12_u16.to_le_bytes());
+        payload.extend_from_slice(&4001_u32.to_le_bytes());
+
+        let error = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::GUILD_CREATE,
+            payload,
+        })
+        .expect_err("legacy framing must not decode");
+        assert!(matches!(
+            error,
+            ProtocolError::InvalidTextLength(length) if length > 512
+        ));
     }
 
     #[test]
