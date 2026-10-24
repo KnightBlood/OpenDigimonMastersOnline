@@ -7624,17 +7624,25 @@ impl DigimonWalkPacket {
     }
 }
 
+/// `SyncCondition` notice — opcode 1070: `{u4 handler; u4 condition}`. The condition is a bit
+/// set, and when the personal-shop bit (`4`) is up the frame carries one more modern text with
+/// that tamer's shop title. An empty title is legal: the client substitutes its own placeholder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncConditionPacket {
     pub handler: i32,
     pub condition: i32,
+    pub shop_title: Option<String>, // modern text, present only with the shop bit
 }
 
 impl SyncConditionPacket {
     pub fn encode(&self) -> Vec<u8> {
+        const CONDITION_SHOP: i32 = 4;
         let mut writer = PacketWriter::new(game::SYNC_CONDITION);
         writer.write_i32(self.handler);
         writer.write_i32(self.condition);
+        if self.condition & CONDITION_SHOP != 0 {
+            writer.write_modern_utf8_string(self.shop_title.as_deref().unwrap_or_default());
+        }
         writer.finalize()
     }
 }
@@ -9114,6 +9122,35 @@ mod tests {
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::GAME_DIED_ALREADY);
         assert_eq!(raw.payload, [1, 0]);
+    }
+
+    #[test]
+    fn sync_condition_without_the_shop_bit_stops_after_the_condition() {
+        let packet = SyncConditionPacket {
+            handler: 42,
+            condition: 1,
+            shop_title: Some("ignored".to_string()),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::SYNC_CONDITION);
+        assert_eq!(raw.payload, [42, 0, 0, 0, 1, 0, 0, 0]);
+    }
+
+    #[test]
+    fn sync_condition_appends_modern_shop_title_when_the_bit_is_set() {
+        let packet = SyncConditionPacket {
+            handler: 42,
+            condition: 5,
+            shop_title: Some("Shop".to_string()),
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.payload.len(), 8 + 2 + 4);
+        assert_eq!(&raw.payload[8..10], &4u16.to_le_bytes());
+        assert_eq!(&raw.payload[10..], b"Shop");
     }
 
     #[test]
