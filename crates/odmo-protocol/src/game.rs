@@ -1039,7 +1039,7 @@ impl SingleValueNoticePacket {
 /// target handler and applies the option through it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TamerOptionPacket {
-    pub target: u32, // handler for sub_DDA4E0
+    pub target: u32, // entity handle the option applies to
     pub value: u32,  // unresolved
 }
 
@@ -1307,7 +1307,7 @@ impl TamerSkillSuccessPacket {
 /// resolves the entity and applies the scale through it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PartnerScalePacket {
-    pub handler: u32, // sub_DDA4E0 lookup
+    pub handler: u32, // entity handle to look up
     pub scale: u16,   // unresolved
     pub arg: u32,     // unresolved
 }
@@ -1550,9 +1550,8 @@ impl MasterInit2ndPassPacket {
     }
 }
 
-/// `Master::LieKillMonster` — opcode 9958: {u4 count; count x i64 money};
-/// the client dumps the per-entry kill money into `_KillMon.txt` and opens
-/// it in notepad.
+/// `Master::LieKillMonster` — opcode 9958: {u4 count; count x i64 money}. Each
+/// entry carries the money credited for one kill record.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MasterLieKillMonsterPacket {
     pub entries: Vec<u64>, // kill money per entry
@@ -7736,9 +7735,8 @@ impl GameHpRatePacket {
     }
 }
 
-/// `GameLevelUp` notice — opcode 1019.
-/// Modern parser (0xDA6C60) reads `{u4 handler_id; u1 level}`; a non-zero id
-/// goes through the entity-table lookup (`sub_DDA4E0`) and raises event 667.
+/// `GameLevelUp` notice — opcode 1019: `{u4 handler_id; u1 level}`. A non-zero
+/// id resolves through the entity table before the level event is raised.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameLevelUpPacket {
     pub handler_id: u32,
@@ -14239,8 +14237,8 @@ mod sync_1006_exploration {
         }
     }
 
-    /// Model of a `New`/`In` count-framed handler (`sub_102420` / `sub_102630`):
-    /// read `[u2 count]`, then consume `count` typed entries.
+    /// Model of a `New`/`In` count-framed record: read `[u2 count]`, then
+    /// consume `count` typed entries.
     fn consume_count_framed(cur: &mut ModelCursor) -> Option<()> {
         let count = cur.read_u16()?;
         for _ in 0..count {
@@ -14249,8 +14247,8 @@ mod sync_1006_exploration {
         Some(())
     }
 
-    /// Faithful model of the client 1006 dispatcher `sub_101F50`: a loop that
-    /// reads `[u1 action]`, runs the matching handler, then reads the next action
+    /// Model of the 1006 dispatcher: a loop that reads `[u1 action]`, runs the
+    /// matching handler, then reads the next action
     /// byte until a `0x00` terminator ends the block. Returns whether the payload
     /// was consumed exactly, underran, or left trailing bytes.
     fn client_parse_1006(payload: &[u8]) -> ParseOutcome {
