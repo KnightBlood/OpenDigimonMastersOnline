@@ -8167,7 +8167,7 @@ impl TryFrom<RawPacket> for GameRequest {
             game::HATCH_FINISH => {
                 let vip = reader.read_u8()?;
                 let portable_pos = reader.read_u32()?;
-                let name = reader.read_string()?;
+                let name = reader.read_modern_utf8_string()?;
                 let npc_idx = reader.read_i32()?;
                 Ok(Self::HatchFinish {
                     vip,
@@ -8679,7 +8679,7 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::SPIRIT_TO_DIGIMON => {
                 let model_id = reader.read_i32()?;
-                let name = reader.read_wide_string()?;
+                let name = reader.read_modern_utf8_string()?;
                 let npc_id = reader.read_i32()?;
                 Ok(Self::SpiritToDigimon {
                     model_id,
@@ -12901,10 +12901,10 @@ mod tests {
     }
 
     #[test]
-    fn spirit_to_digimon_request_decodes_wide_string_name() {
+    fn spirit_to_digimon_request_decodes_modern_text_name() {
         let mut writer = PacketWriter::new(game::SPIRIT_TO_DIGIMON);
         writer.write_i32(31_004);
-        writer.write_wide_string("Agumon");
+        writer.write_modern_utf8_string("Agumon");
         writer.write_i32(91001);
         let packet = writer.finalize();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
@@ -12915,6 +12915,27 @@ mod tests {
                 model_id: 31_004,
                 name: "Agumon".to_string(),
                 npc_id: 91001,
+            }
+        );
+    }
+
+    #[test]
+    fn hatch_finish_request_decodes_modern_text_name() {
+        let mut writer = PacketWriter::new(game::HATCH_FINISH);
+        writer.write_u8(1);
+        writer.write_u32(7);
+        writer.write_modern_utf8_string("Impmon");
+        writer.write_i32(91_001);
+        let packet = writer.finalize();
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        let request = GameRequest::try_from(raw).expect("request should decode");
+        assert_eq!(
+            request,
+            GameRequest::HatchFinish {
+                vip: 1,
+                portable_pos: 7,
+                name: "Impmon".to_string(),
+                npc_idx: 91_001,
             }
         );
     }

@@ -216,7 +216,7 @@ fn encode_request(req: &GameRequest) -> Vec<u8> {
         } => {
             let mut writer = PacketWriter::new(game::SPIRIT_TO_DIGIMON);
             writer.write_i32(*model_id);
-            writer.write_wide_string(name);
+            writer.write_modern_utf8_string(name);
             writer.write_i32(*npc_id);
             writer.finalize()
         }
@@ -1038,10 +1038,10 @@ proptest! {
         craft_consumed in prop::collection::vec(item_block_strategy(), 0..=8),
         craft_gained in prop::collection::vec(item_block_strategy(), 0..=8),
     ) {
-        // Spirit-to-digimon request (3239): [i32 model_id][wstring name][i32 npc_id].
+        // Spirit-to-digimon request (3239): [i32 model_id][modern text name][i32 npc_id].
         let mut hatch_request = PacketWriter::new(game::SPIRIT_TO_DIGIMON);
         hatch_request.write_i32(model_id);
-        hatch_request.write_wide_string(&name);
+        hatch_request.write_modern_utf8_string(&name);
         hatch_request.write_i32(hatch_npc_id);
         let hatch_request_frame = hatch_request.finalize();
         let hatch_request_raw =
