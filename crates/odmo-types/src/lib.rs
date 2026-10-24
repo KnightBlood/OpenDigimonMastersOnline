@@ -1484,36 +1484,6 @@ pub struct TradeSideState {
 }
 
 // ---------------------------------------------------------------------------
-// Arena / PvP rankings (per character)
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ArenaRankingEntry {
-    pub character_id: CharacterId,
-    pub character_name: String,
-    pub character_model: i32,
-    pub level: u8,
-    pub points: i32,
-    pub kills: i32,
-    pub deaths: i32,
-}
-
-impl Default for ArenaRankingEntry {
-    fn default() -> Self {
-        Self {
-            character_id: 0,
-            character_name: String::new(),
-            character_model: 0,
-            level: 1,
-            points: 0,
-            kills: 0,
-            deaths: 0,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Hatch (incubator) state (per character)
 // ---------------------------------------------------------------------------
 

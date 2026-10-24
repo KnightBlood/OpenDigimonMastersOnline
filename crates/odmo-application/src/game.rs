@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use odmo_protocol::game::EvolutionUnlockItem;
 use odmo_protocol::{
+    ArenaFameInfoPacket, ArenaFameSeasonListPacket, ArenaOldRankingInfoPacket,
     ArenaRankingDailyLoadPacket, ArenaRankingDailyUpdatePointsPacket, ArenaRankingInfoPacket,
     AvailableChannelsPacket, BurningEventPacket, CashShopBuyResponsePacket, CashShopCoinsPacket,
     CashShopCropResponsePacket, CashShopWarehousePacket, CastSkillPacket,
@@ -30,7 +31,7 @@ use odmo_protocol::{
     ItemSocketInPacket, ItemSocketOutPacket, ItemStoragePacket, KillOnHitPacket, KillOnSkillPacket,
     LoadBuffsPacket, LoadDropsPacket, LoadInventoryPacket, LoadMobBuffsPacket, LoadMobsPacket,
     LoadTamerPacket, LocalMapSwapPacket, MapSwapPacket, MembershipPacket, MissHitPacket,
-    ModernArenaOldRankingInfoPacket, ModernArenaRankingInfoPacket, MonsterRespawnTimerPacket,
+    MonsterRespawnTimerPacket,
     NpcPurchaseResultPacket, NpcSellResultPacket, NpcSellRow, OtherTamerDetailInfoPacket,
     PartnerSkillErrorPacket, PartnerSwitchFailurePacket, PartnerSwitchPacket,
     PartyChangeLootTypePacket, PartyCreatedPacket, PartyInvitePacket, PartyInviteResultPacket,
@@ -90,6 +91,9 @@ const COMBINE_RESULT_INVENTORY_FULL: u8 = 3;
 // Sync result mirrors the summon convention: zero for a populated catalog, one
 // when there is nothing to roll.
 const COMBINE_SYNC_NO_CATALOG: u8 = 1;
+
+// Live rank status: 1 running, 2 waiting for the next period, 3 no next period.
+const RANK_STATUS_END: u8 = 3;
 
 // The Material_Grid is 11 row-groups of 4 cells; each group must be empty or
 // full, so a valid submission carries a multiple of 4 filled nodes, capped at
@@ -2679,18 +2683,20 @@ impl GameApplication {
             } => self.handle_arena_daily_points(session, points),
             // ArenaDailyRanking — return the current daily arena state.
             GameRequest::ArenaDailyRanking => self.handle_arena_daily_ranking(session),
-            // ArenaRankingAll — return the entire arena ranking.
-            GameRequest::ArenaRankingAll { ranking_type } => {
-                self.handle_arena_ranking_all(session, ranking_type)
-            }
-            // ArenaRequestRank — return the player's bracket of the arena ranking.
+            // ArenaRequestRank — live board for the requested rank type.
             GameRequest::ArenaRequestRank { ranking_type } => {
                 self.handle_arena_request_rank(session, ranking_type)
             }
-            // ArenaRequestOldRank — return last week's archived ranking.
+            // ArenaRequestOldRank — the previous period's archived board.
             GameRequest::ArenaRequestOldRank { ranking_type } => {
                 self.handle_arena_request_old_rank(session, ranking_type)
             }
+            // ArenaRequestFame — hall of fame for a season (0 = latest season).
+            GameRequest::ArenaRequestFame { season } => {
+                self.handle_arena_request_fame(session, season)
+            }
+            // ArenaRequestFameList — seasons that have a hall of fame.
+            GameRequest::ArenaRequestFameList => self.handle_arena_request_fame_list(session),
             // DungeonNextStage — advance the dungeon stage. Real dungeon orchestration is
             // out of scope for the current slice; we acknowledge with the next-stage packet
             // carrying a zero remaining time.
@@ -8262,30 +8268,27 @@ impl GameApplication {
         ])
     }
 
-    fn handle_arena_ranking_all(
-        &self,
-        _session: &GameSession,
-        ranking_type: u8,
-    ) -> Result<Vec<Vec<u8>>, GameFlowError> {
-        Ok(vec![
-            ArenaRankingInfoPacket {
-                ranking_type,
-                entries: Vec::new(),
-            }
-            .encode(),
-        ])
-    }
-
     fn handle_arena_request_rank(
         &self,
         _session: &GameSession,
         ranking_type: u8,
     ) -> Result<Vec<Vec<u8>>, GameFlowError> {
+        // No ranking board is persisted yet, so the reply is a successful but
+        // empty board. The status says the period has closed, which is the only
+        // reading consistent with the zero renew/end timers.
         Ok(vec![
-            ModernArenaRankingInfoPacket {
+            ArenaRankingInfoPacket {
                 ranking_type,
+                result: 0,
+                status: RANK_STATUS_END,
+                point: 0,
+                rank: 0,
+                position_delta: 0,
+                rank_position_kind: 0,
+                rank_percent: 0,
+                renew_sec: 0,
+                end_sec: 0,
                 entries: Vec::new(),
-                tamer_position: 0,
             }
             .encode(),
         ])
@@ -8297,12 +8300,38 @@ impl GameApplication {
         ranking_type: u8,
     ) -> Result<Vec<Vec<u8>>, GameFlowError> {
         Ok(vec![
-            ModernArenaOldRankingInfoPacket {
+            ArenaOldRankingInfoPacket {
                 ranking_type,
+                result: 0,
+                rank: 0,
                 entries: Vec::new(),
             }
             .encode(),
         ])
+    }
+
+    fn handle_arena_request_fame(
+        &self,
+        _session: &GameSession,
+        season: u16,
+    ) -> Result<Vec<Vec<u8>>, GameFlowError> {
+        // Hall-of-fame boards are archived per season; with no archive the
+        // season is echoed back with an empty row list.
+        Ok(vec![
+            ArenaFameInfoPacket {
+                season,
+                result: 0,
+                entries: Vec::new(),
+            }
+            .encode(),
+        ])
+    }
+
+    fn handle_arena_request_fame_list(
+        &self,
+        _session: &GameSession,
+    ) -> Result<Vec<Vec<u8>>, GameFlowError> {
+        Ok(vec![ArenaFameSeasonListPacket::default().encode()])
     }
 
     fn handle_dungeon_next_stage(

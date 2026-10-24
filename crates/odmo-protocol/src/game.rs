@@ -345,15 +345,16 @@ pub enum GameRequest {
         item_id: i16,
     },
     ArenaDailyRanking,
-    ArenaRankingAll {
-        ranking_type: u8,
-    },
     ArenaRequestRank {
         ranking_type: u8,
     },
     ArenaRequestOldRank {
         ranking_type: u8,
     },
+    ArenaRequestFame {
+        season: u16,
+    },
+    ArenaRequestFameList,
     DungeonNextStage,
     DungeonSurrender,
     BurningEvent,
@@ -3364,6 +3365,97 @@ impl Modern3419Packet {
     }
 }
 
+/// ArenaRequestFame: {u4 handler; u4 row; u2 mode}; the companion list
+/// {u4 count; count x {u4 companion}} rides along only when the mode is
+/// 1 and drives the raid-skill pairing with the ev-42 chat feed.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GamTwoArenaRequestFamePacket {
+    pub handler: u32,
+    pub row: u32,
+    pub mode: u16,
+    pub companions: Option<Vec<u32>>, // present only when mode == 1
+}
+
+impl GamTwoArenaRequestFamePacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_ARENA_REQUEST_FAME);
+        writer.write_u32(self.handler);
+        writer.write_u32(self.row);
+        writer.write_u16(self.mode);
+        if let Some(companions) = &self.companions {
+            writer.write_u32(companions.len() as u32);
+            for companion in companions {
+                writer.write_u32(*companion);
+            }
+        }
+        writer.finalize()
+    }
+}
+
+/// RegionBuff: {u4 a; u8 blob; u1 flag; u2 count; count x 69-byte
+/// rows}; the flag routes the buffer (0 -> event 464, 2 or 9 -> event
+/// 465) and the 69-byte blocks stay opaque; unresolved content keeps
+/// its read offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GamTwoRegionBuffPacket {
+    pub a: u32,
+    pub blob: [u8; 8],
+    pub flag: u8,
+    pub rows: Vec<[u8; 69]>,
+}
+
+impl GamTwoRegionBuffPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::GAMETWO_REGION_BUFF);
+        writer.write_u32(self.a);
+        writer.write_bytes(&self.blob);
+        writer.write_u8(self.flag);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            writer.write_bytes(row);
+        }
+        writer.finalize()
+    }
+}
+
+/// Unnamed modern op 3990: {u1 flag}; event 469 pops with the pair.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unknown3990Packet {
+    pub flag: u8,
+}
+
+impl Unknown3990Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::UNKNOWN_3990);
+        writer.write_u8(self.flag);
+        writer.finalize()
+    }
+}
+
+/// Row of modern op 3420; the read shape matches the 3417 24-byte row
+/// exactly, so the type is reused under a distinct name.
+pub type Modern3420Row = Modern3417Row;
+
+/// Unnamed modern op 3420: {u4 a; u2 count; count x rows} shares the
+/// 3417 row build and pops event 442.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Modern3420Packet {
+    pub a: u32, // unresolved field
+    pub rows: Vec<Modern3420Row>,
+}
+
+impl Modern3420Packet {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::MODERN_3420);
+        writer.write_u32(self.a);
+        writer.write_u16(self.rows.len() as u16);
+        for row in &self.rows {
+            row.encode_into(&mut writer);
+        }
+        writer.finalize()
+    }
+}
+
 /// One slot/value row of the pinochi item-delete flows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PinochiDeleteRow {
@@ -3501,8 +3593,8 @@ const ENTITY_BLOCK_END: u8 = 0;
 const TAMER_EQUIPMENT_SLOTS: usize = 16;
 /// Byte length of one visual slot record.
 const VISUAL_SLOT_LEN: usize = 69;
-/// Fixed number of clone-stat words a digimon body carries.
-const DIGIMON_CLONE_SLOTS: usize = 7;
+/// Number of extend-stat levels a digimon body carries, after the enchant level.
+const DIGIMON_EXTEND_STATS: usize = 7;
 /// Maximum string length the client accepts in an entity body.
 const ENTITY_STRING_MAX: usize = 0x200;
 
@@ -3514,17 +3606,36 @@ fn write_entity_string(writer: &mut PacketWriter, value: &str) {
     writer.write_bytes(&bytes[..len]);
 }
 
-/// Write the 16-byte entry header: position pair, packed kind+handle, reserved.
-fn write_entity_header(writer: &mut PacketWriter, kind: u16, handle: u16, x: i32, y: i32) {
+/// Write the 16-byte entry header: position pair, packed kind+handle, entity type.
+///
+/// The last word is the entity type the client feeds to its object factory
+/// (monster/digimon type id, tamer model, item id); it is not reserved.
+fn write_entity_header(
+    writer: &mut PacketWriter,
+    kind: u16,
+    handle: u16,
+    entity_type: u32,
+    x: i32,
+    y: i32,
+) {
     writer.write_i32(x);
     writer.write_i32(y);
     writer.write_u32((u32::from(kind) << 16) | u32::from(handle));
-    writer.write_u32(0);
+    writer.write_u32(entity_type);
 }
 
 /// Resolve a 16-bit map handle, falling back to the entity id when unset.
 fn entity_handle(raw: u32, fallback_id: u64) -> u16 {
     non_zero_handler(raw, fallback_id) as u16
+}
+
+/// Health-bar fill percentage the entity record carries; an unknown maximum reads as full.
+fn hp_rate_percent(current: i32, max: i32) -> u8 {
+    if max <= 0 {
+        return 100;
+    }
+    let percent = (i64::from(current.max(0)) * 100) / i64::from(max);
+    percent.clamp(0, 100) as u8
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -3542,38 +3653,47 @@ impl LoadTamerPacket {
         writer.write_u8(ENTITY_ACTION_IN);
         writer.write_u16(2);
 
-        // --- Tamer entry ---
         let tamer_handle = entity_handle(c.general_handler, c.id);
-        write_entity_header(&mut writer, ENTITY_KIND_TAMER, tamer_handle, c.x, c.y);
+        let partner_handle = entity_handle(c.partner_handler, c.id.saturating_add(10_000));
+
+        // --- Tamer entry ---
+        write_entity_header(
+            &mut writer,
+            ENTITY_KIND_TAMER,
+            tamer_handle,
+            c.model as u32,
+            c.x,
+            c.y,
+        );
         writer.write_i32(c.x);
         writer.write_i32(c.y);
         write_entity_string(&mut writer, &c.name);
-        writer.write_u8(0);
-        writer.write_i32(c.model);
-        writer.write_u16(c.size as u16);
-        writer.write_u8(0);
+        writer.write_u8(c.level);
+        writer.write_f32(0.0); // facing direction is owned by the client
+        writer.write_u16(c.ms.clamp(0, u16::MAX as i32) as u16);
+        writer.write_u8(hp_rate_percent(c.current_hp, c.hp));
         writer.write_zeroes(TAMER_EQUIPMENT_SLOTS * VISUAL_SLOT_LEN);
         writer.write_zeroes(VISUAL_SLOT_LEN);
         let condition = c.current_condition as u32;
         writer.write_u32(condition);
         writer.write_u32(0);
-        writer.write_u32(0);
-        writer.write_u16(c.ms.clamp(0, u16::MAX as i32) as u16);
-        writer.write_u8(0); // no secondary name
-        writer.write_u16(0);
-        writer.write_u8(0);
+        writer.write_u32(u32::from(partner_handle));
+        writer.write_u16(c.size as u16);
+        writer.write_u8(0); // no guild
+        writer.write_u16(0); // achievement
+        writer.write_u8(0); // match team
         writer.write_u16(c.seal_list.seal_leader_id as u16);
         if condition & 0x4 != 0 {
             write_entity_string(&mut writer, &c.shop_name);
         }
-        writer.write_u32(0);
+        writer.write_u32(0); // no costume
 
         // --- Partner digimon entry ---
-        let partner_handle = entity_handle(c.partner_handler, c.id.saturating_add(10_000));
         write_entity_header(
             &mut writer,
             ENTITY_KIND_DIGIMON,
             partner_handle,
+            c.partner_current_type as u32,
             c.partner_x,
             c.partner_y,
         );
@@ -3581,23 +3701,22 @@ impl LoadTamerPacket {
         writer.write_i32(c.partner_y);
         write_entity_string(&mut writer, &c.partner_name);
         writer.write_u16(c.partner_size as u16);
-        writer.write_u8(0);
-        writer.write_i32(c.partner_current_type);
-        writer.write_u16(0);
-        writer.write_u16(0);
-        writer.write_u8(0);
-        writer.write_u32(0);
-        writer.write_u8(0);
-        writer.write_u32(0);
-        writer.write_u16(DIGIMON_CLONE_SLOTS as u16);
-        writer.write_u16(c.partner_clone_level);
-        writer.write_u16(c.partner_clone_at_level);
-        writer.write_u16(c.partner_clone_bl_level);
-        writer.write_u16(c.partner_clone_ct_level);
-        writer.write_u16(c.partner_clone_ev_level);
-        writer.write_u16(c.partner_clone_hp_level);
-        writer.write_u16(0);
-        writer.write_u32(0);
+        writer.write_u8(c.partner_level);
+        writer.write_f32(0.0); // facing direction is owned by the client
+        writer.write_u16(c.partner_ms.clamp(0, u16::MAX as i32) as u16);
+        writer.write_u16(c.partner_as.clamp(0, u16::MAX as i32) as u16);
+        writer.write_u8(0); // spawn flag
+        writer.write_u32(u32::from(tamer_handle));
+        writer.write_u8(hp_rate_percent(c.partner_current_hp, c.partner_hp));
+        writer.write_u32(c.partner_condition as u32);
+        // Enchant level plus the extend-stat levels. Clone stats use a different
+        // scale and have no counterpart here, so the record reports an unenchanted
+        // partner rather than repurposing them.
+        writer.write_u16(0); // enchant level
+        for _ in 0..DIGIMON_EXTEND_STATS {
+            writer.write_u16(0);
+        }
+        writer.write_u32(0); // no appearance item
 
         writer.write_u8(ENTITY_BLOCK_END);
         writer.finalize()
@@ -3627,17 +3746,18 @@ impl LoadMobsPacket {
             &mut writer,
             ENTITY_KIND_MONSTER,
             handle,
+            m.type_id as u32,
             m.previous_x,
             m.previous_y,
         );
         writer.write_i32(m.x);
         writer.write_i32(m.y);
-        writer.write_u8(0);
-        writer.write_u8(0);
-        writer.write_i32(m.type_id);
-        writer.write_i32(m.max_hp);
-        writer.write_f32(0.0);
-        writer.write_u32(0); // no skill/effect records
+        writer.write_u8(hp_rate_percent(m.current_hp, m.max_hp));
+        writer.write_u8(m.level);
+        writer.write_u32(0); // no monster growth skill
+        writer.write_u32(0); // growth stack
+        writer.write_u32(0); // condition
+        writer.write_u32(0); // no skill/seed records
         writer.write_u8(ENTITY_BLOCK_END);
         writer.finalize()
     }
@@ -3650,9 +3770,9 @@ pub struct LoadDropsPacket {
 }
 
 impl LoadDropsPacket {
-    /// Encode a ground item as a single-entry 1006 `In` block. The client
-    /// resolves the drop's visuals from the item table, so the body carries only
-    /// the item id and an owner/form flag after the entry header.
+    /// Encode a ground item as a single-entry 1006 `In` block. The item id
+    /// travels in the entry header; the client resolves the drop's visuals from
+    /// that id, so the body only carries the owner handle and the state byte.
     pub fn encode(&self) -> Vec<u8> {
         let d = &self.drop;
         let mut writer = PacketWriter::new(game::LOAD_UNLOAD_ENTITY);
@@ -3660,9 +3780,16 @@ impl LoadDropsPacket {
         writer.write_u16(1);
 
         let handle = entity_handle(d.handler, d.id);
-        write_entity_header(&mut writer, ENTITY_KIND_ITEM, handle, d.x, d.y);
-        writer.write_i32(d.item_id);
-        writer.write_u8(0);
+        write_entity_header(
+            &mut writer,
+            ENTITY_KIND_ITEM,
+            handle,
+            d.item_id as u32,
+            d.x,
+            d.y,
+        );
+        writer.write_u32(0); // no owner
+        writer.write_u8(0); // item form/state flags
         writer.write_u8(ENTITY_BLOCK_END);
         writer.finalize()
     }
@@ -5800,77 +5927,151 @@ impl ArenaRankingDailyUpdatePointsPacket {
     }
 }
 
-/// `ArenaRankingInfo` — opcode 16023.
-/// `[u8 status][u8 ranking_type][i32 entries] for entry: [name str][i32 points][i32 model][i64 tamer_id]`
+/// One row of the live weekly/monthly/season board:
+/// `{u1 rank; string name; string guild; u4 point; u1 is_new; i8 position_delta}`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArenaRankRow {
+    pub rank: u8,
+    pub name: String,
+    pub guild: String,
+    pub points: u32,
+    pub is_new: bool,
+    pub position_delta: i8,
+}
+
+/// One row of an archived board (a previous period or the hall of fame):
+/// `{u1 rank; string name; string guild; u4 point}`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArenaArchiveRankRow {
+    pub rank: u8,
+    pub name: String,
+    pub guild: String,
+    pub points: u32,
+}
+
+/// Upper bound the client reserves for the live board row list.
+const ARENA_RANK_ROWS_MAX: usize = 100;
+/// Upper bound the client reserves for the hall-of-fame row list.
+const ARENA_FAME_ROWS_MAX: usize = 50;
+
+/// `ArenaRequestRank` — opcode 16023: live board for one rank type.
+///
+/// Header: `{u1 rank_type; u1 result; u1 status; u4 point; u4 rank;
+/// u4 position_delta; u1 rank_position_kind; u1 rank_percent; u4 renew_sec;
+/// u4 end_sec; u1 count}`, then `count` rows. The client drops the packet when
+/// `result` is non-zero; a zero-length list is a valid empty board.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArenaRankingInfoPacket {
     pub ranking_type: u8,
-    pub entries: Vec<odmo_types::ArenaRankingEntry>,
+    pub result: u8,
+    pub status: u8,
+    pub point: u32,
+    pub rank: u32,
+    pub position_delta: u32,
+    /// 0 = `rank_percent` is an absolute position, 1 = it is a percentage.
+    pub rank_position_kind: u8,
+    pub rank_percent: u8,
+    pub renew_sec: u32,
+    pub end_sec: u32,
+    pub entries: Vec<ArenaRankRow>,
 }
 
 impl ArenaRankingInfoPacket {
     pub fn encode(&self) -> Vec<u8> {
-        let mut writer = PacketWriter::new(game::ARENA_RANKING_ALL);
-        writer.write_u8(self.ranking_type);
-        writer.write_i32(self.entries.len() as i32);
-        for entry in &self.entries {
-            writer.write_string(&entry.character_name);
-            writer.write_i32(entry.points);
-            writer.write_i32(entry.character_model);
-            writer.write_u64(entry.character_id);
-            writer.write_u8(entry.level);
-            writer.write_i32(entry.kills);
-            writer.write_i32(entry.deaths);
-        }
-        writer.finalize()
-    }
-}
-
-/// `ModernArenaRankingInfo` — opcode 16025.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModernArenaRankingInfoPacket {
-    pub ranking_type: u8,
-    pub entries: Vec<odmo_types::ArenaRankingEntry>,
-    pub tamer_position: i32,
-}
-
-impl ModernArenaRankingInfoPacket {
-    pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::ARENA_REQUEST_RANK);
         writer.write_u8(self.ranking_type);
-        writer.write_i32(self.tamer_position);
-        writer.write_i32(self.entries.len() as i32);
-        for entry in &self.entries {
-            writer.write_string(&entry.character_name);
-            writer.write_i32(entry.points);
-            writer.write_i32(entry.character_model);
-            writer.write_u64(entry.character_id);
-            writer.write_u8(entry.level);
-            writer.write_i32(entry.kills);
-            writer.write_i32(entry.deaths);
+        writer.write_u8(self.result);
+        writer.write_u8(self.status);
+        writer.write_u32(self.point);
+        writer.write_u32(self.rank);
+        writer.write_u32(self.position_delta);
+        writer.write_u8(self.rank_position_kind);
+        writer.write_u8(self.rank_percent);
+        writer.write_u32(self.renew_sec);
+        writer.write_u32(self.end_sec);
+        writer.write_u8(self.entries.len().min(ARENA_RANK_ROWS_MAX) as u8);
+        for entry in self.entries.iter().take(ARENA_RANK_ROWS_MAX) {
+            writer.write_u8(entry.rank);
+            writer.write_modern_utf8_string(&entry.name);
+            writer.write_modern_utf8_string(&entry.guild);
+            writer.write_u32(entry.points);
+            writer.write_u8(u8::from(entry.is_new));
+            writer.write_i8(entry.position_delta);
         }
         writer.finalize()
     }
 }
 
-/// `ModernArenaOldRankingInfo` — opcode 16026.
+/// `ArenaRequestOldRank` — opcode 16024: the previous period's board.
+///
+/// `{u1 rank_type; u1 result; u4 rank; u1 count}` then archived rows.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModernArenaOldRankingInfoPacket {
+pub struct ArenaOldRankingInfoPacket {
     pub ranking_type: u8,
-    pub entries: Vec<odmo_types::ArenaRankingEntry>,
+    pub result: u8,
+    /// The tamer's own position in the archived board, 0 when absent.
+    pub rank: u32,
+    pub entries: Vec<ArenaArchiveRankRow>,
 }
 
-impl ModernArenaOldRankingInfoPacket {
+impl ArenaOldRankingInfoPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::ARENA_REQUEST_OLD_RANK);
         writer.write_u8(self.ranking_type);
-        writer.write_i32(self.entries.len() as i32);
-        for entry in &self.entries {
-            writer.write_string(&entry.character_name);
-            writer.write_i32(entry.points);
-            writer.write_i32(entry.character_model);
-            writer.write_u64(entry.character_id);
-            writer.write_u8(entry.level);
+        writer.write_u8(self.result);
+        writer.write_u32(self.rank);
+        writer.write_u8(self.entries.len().min(ARENA_RANK_ROWS_MAX) as u8);
+        for entry in self.entries.iter().take(ARENA_RANK_ROWS_MAX) {
+            writer.write_u8(entry.rank);
+            writer.write_modern_utf8_string(&entry.name);
+            writer.write_modern_utf8_string(&entry.guild);
+            writer.write_u32(entry.points);
+        }
+        writer.finalize()
+    }
+}
+
+/// `ArenaRequestFame` — opcode 16025: the hall of fame for one season.
+///
+/// `{u2 season; u1 result; u1 count}` then archived rows. The season is
+/// echoed back so the client can key its per-season cache.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArenaFameInfoPacket {
+    pub season: u16,
+    pub result: u8,
+    pub entries: Vec<ArenaArchiveRankRow>,
+}
+
+impl ArenaFameInfoPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ARENA_REQUEST_FAME);
+        writer.write_u16(self.season);
+        writer.write_u8(self.result);
+        writer.write_u8(self.entries.len().min(ARENA_FAME_ROWS_MAX) as u8);
+        for entry in self.entries.iter().take(ARENA_FAME_ROWS_MAX) {
+            writer.write_u8(entry.rank);
+            writer.write_modern_utf8_string(&entry.name);
+            writer.write_modern_utf8_string(&entry.guild);
+            writer.write_u32(entry.points);
+        }
+        writer.finalize()
+    }
+}
+
+/// `ArenaRequestFameList` — opcode 16026: the seasons that have a hall of fame.
+///
+/// `{u2 count}` then `count` season numbers in ascending order.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ArenaFameSeasonListPacket {
+    pub seasons: Vec<u16>,
+}
+
+impl ArenaFameSeasonListPacket {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::ARENA_REQUEST_FAME_LIST);
+        writer.write_u16(self.seasons.len() as u16);
+        for season in &self.seasons {
+            writer.write_u16(*season);
         }
         writer.finalize()
     }
@@ -8242,10 +8443,6 @@ impl TryFrom<RawPacket> for GameRequest {
                 })
             }
             game::ARENA_DAILY_RANKING => Ok(Self::ArenaDailyRanking),
-            game::ARENA_RANKING_ALL => {
-                let ranking_type = reader.read_u8()?;
-                Ok(Self::ArenaRankingAll { ranking_type })
-            }
             game::ARENA_REQUEST_RANK => {
                 let ranking_type = reader.read_u8()?;
                 Ok(Self::ArenaRequestRank { ranking_type })
@@ -8254,6 +8451,11 @@ impl TryFrom<RawPacket> for GameRequest {
                 let ranking_type = reader.read_u8()?;
                 Ok(Self::ArenaRequestOldRank { ranking_type })
             }
+            game::ARENA_REQUEST_FAME => {
+                let season = reader.read_u16()?;
+                Ok(Self::ArenaRequestFame { season })
+            }
+            game::ARENA_REQUEST_FAME_LIST => Ok(Self::ArenaRequestFameList),
             game::DUNGEON_NEXT_STAGE => Ok(Self::DungeonNextStage),
             game::DUNGEON_SURRENDER => Ok(Self::DungeonSurrender),
             game::BURNING_EVENT => Ok(Self::BurningEvent),
@@ -10630,6 +10832,163 @@ mod tests {
     }
 
     #[test]
+    fn arena_live_board_writes_self_header_then_rows() {
+        let packet = ArenaRankingInfoPacket {
+            ranking_type: 1,
+            result: 0,
+            status: 3,
+            point: 0x1122_3344,
+            rank: 7,
+            position_delta: 2,
+            rank_position_kind: 0,
+            rank_percent: 40,
+            renew_sec: 60,
+            end_sec: 120,
+            entries: vec![ArenaRankRow {
+                rank: 1,
+                name: "Ann".to_string(),
+                guild: "Bo".to_string(),
+                points: 900,
+                is_new: true,
+                position_delta: -4,
+            }],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ARENA_REQUEST_RANK);
+        assert_eq!(raw.payload.len(), 42);
+        assert_eq!(raw.payload[0], 1);
+        assert_eq!(raw.payload[1], 0);
+        assert_eq!(raw.payload[2], 3);
+        assert_eq!(&raw.payload[3..7], &0x1122_3344_u32.to_le_bytes());
+        assert_eq!(&raw.payload[7..11], &7_u32.to_le_bytes());
+        assert_eq!(&raw.payload[11..15], &2_u32.to_le_bytes());
+        assert_eq!(raw.payload[15], 0);
+        assert_eq!(raw.payload[16], 40);
+        assert_eq!(&raw.payload[17..21], &60_u32.to_le_bytes());
+        assert_eq!(&raw.payload[21..25], &120_u32.to_le_bytes());
+        assert_eq!(raw.payload[25], 1);
+        // Row: rank, name string, guild string, point, is_new, signed delta.
+        assert_eq!(raw.payload[26], 1);
+        assert_eq!(&raw.payload[27..29], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[29..32], b"Ann");
+        assert_eq!(&raw.payload[32..34], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[34..36], b"Bo");
+        assert_eq!(&raw.payload[36..40], &900_u32.to_le_bytes());
+        assert_eq!(raw.payload[40], 1);
+        assert_eq!(raw.payload[41] as i8, -4);
+    }
+
+    #[test]
+    fn arena_old_rank_writes_self_rank_then_archived_rows() {
+        let packet = ArenaOldRankingInfoPacket {
+            ranking_type: 2,
+            result: 0,
+            rank: 11,
+            entries: vec![ArenaArchiveRankRow {
+                rank: 1,
+                name: "Ann".to_string(),
+                guild: "Bo".to_string(),
+                points: 900,
+            }],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ARENA_REQUEST_OLD_RANK);
+        assert_eq!(raw.payload.len(), 21);
+        assert_eq!(raw.payload[0], 2);
+        assert_eq!(raw.payload[1], 0);
+        assert_eq!(&raw.payload[2..6], &11_u32.to_le_bytes());
+        assert_eq!(raw.payload[6], 1);
+        assert_eq!(raw.payload[7], 1);
+        assert_eq!(&raw.payload[8..10], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[10..13], b"Ann");
+        assert_eq!(&raw.payload[13..15], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[15..17], b"Bo");
+        assert_eq!(&raw.payload[17..21], &900_u32.to_le_bytes());
+    }
+
+    #[test]
+    fn arena_fame_writes_echoed_season_then_rows() {
+        let packet = ArenaFameInfoPacket {
+            season: 5,
+            result: 0,
+            entries: vec![ArenaArchiveRankRow {
+                rank: 1,
+                name: "Ann".to_string(),
+                guild: "Bo".to_string(),
+                points: 900,
+            }],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ARENA_REQUEST_FAME);
+        assert_eq!(raw.payload.len(), 18);
+        assert_eq!(&raw.payload[..2], &5_u16.to_le_bytes());
+        assert_eq!(raw.payload[2], 0);
+        assert_eq!(raw.payload[3], 1);
+        assert_eq!(raw.payload[4], 1);
+        assert_eq!(&raw.payload[5..7], &3u16.to_le_bytes());
+        assert_eq!(&raw.payload[7..10], b"Ann");
+        assert_eq!(&raw.payload[10..12], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[12..14], b"Bo");
+        assert_eq!(&raw.payload[14..18], &900_u32.to_le_bytes());
+    }
+
+    #[test]
+    fn arena_fame_season_list_writes_u16_seasons() {
+        let packet = ArenaFameSeasonListPacket {
+            seasons: vec![3, 7],
+        }
+        .encode();
+
+        let raw = PacketReader::from_frame(&packet).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::ARENA_REQUEST_FAME_LIST);
+        assert_eq!(raw.payload.len(), 6);
+        assert_eq!(&raw.payload[..2], &2_u16.to_le_bytes());
+        assert_eq!(&raw.payload[2..4], &3_u16.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &7_u16.to_le_bytes());
+    }
+
+    #[test]
+    fn parse_arena_requests_covers_all_four_ids() {
+        let live = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::ARENA_REQUEST_RANK,
+            payload: vec![2],
+        })
+        .expect("live rank request should parse");
+        assert_eq!(live, GameRequest::ArenaRequestRank { ranking_type: 2 });
+
+        let old = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::ARENA_REQUEST_OLD_RANK,
+            payload: vec![3],
+        })
+        .expect("old rank request should parse");
+        assert_eq!(old, GameRequest::ArenaRequestOldRank { ranking_type: 3 });
+
+        let fame = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::ARENA_REQUEST_FAME,
+            payload: 5_u16.to_le_bytes().to_vec(),
+        })
+        .expect("fame request should parse");
+        assert_eq!(fame, GameRequest::ArenaRequestFame { season: 5 });
+
+        let list = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::ARENA_REQUEST_FAME_LIST,
+            payload: Vec::new(),
+        })
+        .expect("season list request should parse");
+        assert_eq!(list, GameRequest::ArenaRequestFameList);
+    }
+
+    #[test]
     fn game_two_family_writes_doors_guards_actions_and_guage() {
         let door = GameTwoDoorObjectOpenPacket {
             monster_id: 7,
@@ -11058,6 +11417,86 @@ mod tests {
         assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
         assert_eq!(&raw.payload[6..10], &1u32.to_le_bytes());
         assert_eq!(&raw.payload[10..14], &2u32.to_le_bytes());
+    }
+
+    #[test]
+    fn fame_region_and_extended_cash_snapshot_writes_encoded_bodies() {
+        let fame_plain = GamTwoArenaRequestFamePacket {
+            handler: 1,
+            row: 2,
+            mode: 0,
+            companions: None,
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&fame_plain).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_ARENA_REQUEST_FAME);
+        assert_eq!(raw.payload, [1, 0, 0, 0, 2, 0, 0, 0, 0, 0]);
+
+        let fame_list = GamTwoArenaRequestFamePacket {
+            handler: 1,
+            row: 2,
+            mode: 1,
+            companions: Some(vec![3, 4]),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&fame_list).expect("frame should decode");
+        // u4 + u4 + u2 mode + u4 count + 2 x u4
+        assert_eq!(raw.payload.len(), 14 + 8);
+        assert_eq!(raw.payload[8], 1);
+        assert_eq!(&raw.payload[10..14], &2u32.to_le_bytes());
+        assert_eq!(&raw.payload[14..18], &3u32.to_le_bytes());
+        assert_eq!(&raw.payload[18..22], &4u32.to_le_bytes());
+
+        let region = GamTwoRegionBuffPacket {
+            a: 1,
+            blob: [5, 6, 7, 8, 9, 10, 11, 12],
+            flag: 2,
+            rows: Vec::new(),
+        }
+        .encode();
+        let raw = PacketReader::from_frame(&region).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::GAMETWO_REGION_BUFF);
+        assert_eq!(raw.payload.len(), 15);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..12], [5, 6, 7, 8, 9, 10, 11, 12]);
+        assert_eq!(raw.payload[12], 2);
+        assert_eq!(&raw.payload[13..15], &[0, 0]);
+
+        let flag3990 = Unknown3990Packet { flag: 7 }.encode();
+        let raw = PacketReader::from_frame(&flag3990).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::UNKNOWN_3990);
+        assert_eq!(raw.payload, [7]);
+
+        let mut rows = Vec::new();
+        for i in 0..2 {
+            rows.push(Modern3420Row {
+                c: (i + 1) as u32,
+                d: 2,
+                e: 3,
+                f: 4,
+                g: 5,
+                h: 6,
+                i: 7,
+                j: 8,
+                k: 9,
+                l: 10,
+                m: 11,
+                n: 12,
+            });
+        }
+        let list3420 = Modern3420Packet { a: 1, rows }.encode();
+        let raw = PacketReader::from_frame(&list3420).expect("frame should decode");
+        assert_eq!(raw.packet_type, game::MODERN_3420);
+        // u4 a + u2 count + 2 x 24-byte rows
+        assert_eq!(raw.payload.len(), 6 + 2 * 24);
+        assert_eq!(&raw.payload[..4], &1u32.to_le_bytes());
+        assert_eq!(&raw.payload[4..6], &2u16.to_le_bytes());
+        assert_eq!(&raw.payload[6..10], &1u32.to_le_bytes());
+        assert_eq!(raw.payload[6], 1);
+        assert_eq!(raw.payload[18], 4);
+        assert_eq!(&raw.payload[19..21], &5u16.to_le_bytes());
+        assert_eq!(raw.payload[29], 12);
+        assert_eq!(&raw.payload[30..34], &2u32.to_le_bytes());
     }
 
     #[test]
@@ -13032,84 +13471,87 @@ mod sync_1006_exploration {
         }
     }
 
-    /// Consume a digimon (kind 1) body, mirroring `sub_1040E0`'s read order:
-    /// handle pair, name, size, flag, model, two shorts, a flag, then a fixed
-    /// block of post-spawn fields and the `[u2 count] + 7 shorts + u4` clone tail.
+    /// Consume a digimon (kind 1) body in the order the client reads it:
+    /// destination pair, name, scale, level, facing, move speed, attack speed,
+    /// spawn flag, tamer handle, hp rate, condition, enchant level, the seven
+    /// extend-stat levels, and the appearance item id.
     fn consume_digimon_body(cur: &mut ModelCursor) -> Option<()> {
-        cur.read_u32()?; // handle pair
+        cur.read_u32()?; // destination x, y
         cur.read_u32()?;
         cur.read_entity_string()?; // name
-        cur.read_u16()?; // size
-        cur.read_u8()?; // flag
-        cur.read_u32()?; // model
-        cur.read_u16()?;
-        cur.read_u16()?;
-        cur.read_u8()?;
-        cur.read_u32()?;
-        cur.read_u8()?;
-        cur.read_u32()?;
-        let clone_count = cur.read_u16()?; // clone-stat count
-        for _ in 0..clone_count {
-            cur.read_u16()?;
+        cur.read_u16()?; // scale
+        cur.read_u8()?; // level
+        cur.read_u32()?; // facing direction
+        cur.read_u16()?; // move speed
+        cur.read_u16()?; // attack speed
+        cur.read_u8()?; // spawn flag
+        cur.read_u32()?; // tamer handle
+        cur.read_u8()?; // hp rate
+        cur.read_u32()?; // condition
+        cur.read_u16()?; // enchant level
+        for _ in 0..7 {
+            cur.read_u16()?; // extend-stat levels
         }
-        cur.read_u32()?; // item/aura id
+        cur.read_u32()?; // appearance item id
         Some(())
     }
 
-    /// Consume a tamer (kind 2) body, mirroring `sub_1032C0`: handle pair, name,
-    /// flag, model, size, condition flag, the 16x69 equipment block plus a 69-byte
-    /// visual record, three condition/sync dwords, speed, an optional second name,
-    /// a couple of trailing fields, the seal id, an optional shop name when the
-    /// condition bitfield requests it, and a trailing dword.
+    /// Consume a tamer (kind 2) body in the order the client reads it:
+    /// destination pair, name, level, facing, move speed, hp rate, the 16x69
+    /// equipment block plus a 69-byte digivice record, condition/sync/partner
+    /// dwords, scale, guild class (with id and name when set), achievement,
+    /// match team, seal id, an optional shop title, and the costume id.
     fn consume_tamer_body(cur: &mut ModelCursor) -> Option<()> {
-        cur.read_u32()?; // handle pair
+        cur.read_u32()?; // destination x, y
         cur.read_u32()?;
         cur.read_entity_string()?; // name
-        cur.read_u8()?; // flag
-        cur.read_u32()?; // model
-        cur.read_u16()?; // size
-        cur.read_u8()?; // condition flag
+        cur.read_u8()?; // level
+        cur.read_u32()?; // facing direction
+        cur.read_u16()?; // move speed
+        cur.read_u8()?; // hp rate
         cur.take(TAMER_EQUIPMENT_SLOTS * VISUAL_SLOT_LEN)?; // equipment slots
-        cur.take(VISUAL_SLOT_LEN)?; // trailing visual record
+        cur.take(VISUAL_SLOT_LEN)?; // digivice record
         let condition = cur.read_u32()?; // condition bitfield
-        cur.read_u32()?;
-        cur.read_u32()?;
-        cur.read_u16()?; // speed
-        let has_second_name = cur.read_u8()?; // secondary-name flag
-        if has_second_name != 0 {
-            cur.read_u32()?;
-            cur.read_entity_string()?;
+        cur.read_u32()?; // sync
+        cur.read_u32()?; // partner handle
+        cur.read_u16()?; // scale
+        let guild_class = cur.read_u8()?;
+        if guild_class != 0 {
+            cur.read_u32()?; // guild id
+            cur.read_entity_string()?; // guild name
         }
-        cur.read_u16()?;
-        cur.read_u8()?;
+        cur.read_u16()?; // achievement
+        cur.read_u8()?; // match team
         cur.read_u16()?; // seal id
         if condition & 0x4 != 0 {
-            cur.read_entity_string()?; // shop name
+            cur.read_entity_string()?; // shop title
         }
-        cur.read_u32()?; // trailing
+        cur.read_u32()?; // costume id
         Some(())
     }
 
-    /// Consume an item/drop (kind 3) body, mirroring `sub_103210`:
-    /// `[u4 item_id][u1 form]`.
+    /// Consume an item/drop (kind 3) body: `[u4 owner handle][u1 state]`.
     fn consume_item_body(cur: &mut ModelCursor) -> Option<()> {
-        cur.read_u32()?; // item id
-        cur.read_u8()?; // form
+        cur.read_u32()?; // owner handle
+        cur.read_u8()?; // state
         Some(())
     }
 
-    /// Consume a monster (kind 4) body, mirroring `sub_104F80`: handle/object
-    /// pair, two flags, type id, HP/scale base, a float, then a skill/effect
-    /// sub-count and that many `[u4][f4][u4][u4]` records.
+    /// Consume a monster (kind 4) body: destination pair, hp rate, level, growth
+    /// skill id, stack count, condition, an extra skill id when the condition
+    /// requests it, then the skill/seed record count.
     fn consume_monster_body(cur: &mut ModelCursor) -> Option<()> {
-        cur.read_u32()?; // handle/object pair
+        cur.read_u32()?; // destination x, y
         cur.read_u32()?;
-        cur.read_u8()?; // state
-        cur.read_u8()?; // flag
-        cur.read_u32()?; // type id
-        cur.read_u32()?; // HP/scale base
-        cur.read_u32()?; // float
-        let record_count = cur.read_u32()?; // skill/effect count
+        cur.read_u8()?; // hp rate
+        cur.read_u8()?; // level
+        cur.read_u32()?; // growth skill id
+        cur.read_u32()?; // stack count
+        let condition = cur.read_u32()?;
+        if condition == 6 {
+            cur.read_u32()?; // casting skill id
+        }
+        let record_count = cur.read_u32()?; // skill/seed count
         for _ in 0..record_count {
             cur.read_u32()?;
             cur.read_u32()?;

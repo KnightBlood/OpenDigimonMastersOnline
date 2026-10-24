@@ -567,9 +567,14 @@ pub mod game {
     pub const OTHER_TAMER_DETAIL_INFO_RESPONSE: i16 = 16071;
     pub const ARENA_DAILY_POINTS: i16 = 4131;
     pub const ARENA_DAILY_RANKING: i16 = 4130;
-    pub const ARENA_RANKING_ALL: i16 = 16023;
-    pub const ARENA_REQUEST_RANK: i16 = 16025;
-    pub const ARENA_REQUEST_OLD_RANK: i16 = 16026;
+    // Ranking requests and their responses share one id each. The client sends
+    // `ArenaRequestRank`/`ArenaRequestOldRank` with a rank-type byte (week,
+    // month, season), `ArenaRequestFame` with a season number (0 = latest) and
+    // `ArenaRequestFameList` with no payload.
+    pub const ARENA_REQUEST_RANK: i16 = 16023;
+    pub const ARENA_REQUEST_OLD_RANK: i16 = 16024;
+    pub const ARENA_REQUEST_FAME: i16 = 16025;
+    pub const ARENA_REQUEST_FAME_LIST: i16 = 16026;
     pub const DUNGEON_NEXT_STAGE: i16 = 4126;
     pub const DUNGEON_SURRENDER: i16 = 4127;
     pub const BURNING_EVENT: i16 = 3132;
@@ -684,6 +689,13 @@ pub mod game {
     pub const GAMETWO_GAME_GUARD_CHECK: i16 = 16011;
     pub const GAMETWO_SKILL_ACTION: i16 = 16012;
     pub const GAMETWO_X_GUAGE_UPDATE: i16 = 16034;
+    // ArenaRequestFame {u4 handler; u4 row; u2 mode}; when mode is 1 it
+    // extends with {u4 count; count x {u4 companion}} carrying the paired
+    // raid-skill chain used for chat substitutions.
+    pub const GAMETWO_ARENA_REQUEST_FAME: i16 = 16027;
+    // RegionBuff {u4 a; u8 blob; u1 flag; u2 count; count x 69-byte rows};
+    // the flag selects which buffer view receives the rows.
+    pub const GAMETWO_REGION_BUFF: i16 = 16038;
     // TimeCharge family. ItemList {u4 a; u2 b; u4 c; u4 d; u8 e; 69-byte
     // charge row; u4 f} through event 510 (44996 0xD9C2C0); Normal {u4 a;
     // u4 b; u4 c; 69-byte charge row; u8 d; u2 count; count x {u2 e;
@@ -751,6 +763,11 @@ pub mod game {
     pub const MODERN_3417: i16 = 3417;
     pub const MODERN_3418: i16 = 3418;
     pub const MODERN_3419: i16 = 3419;
+    // 3420 shares the 3417 24-byte row shape but drops the second header
+    // u4: {u4 a; u2 count; count x rows}.
+    pub const MODERN_3420: i16 = 3420;
+    // Bare flag payload: {u1}.
+    pub const UNKNOWN_3990: i16 = 3990;
     pub const TAMER_SUMMON: i16 = 1114;
     pub const TAMER_SKILL_REQUEST: i16 = 1327;
     pub const TRANSCENDENCE_RECEIVE_EXP: i16 = 16039;

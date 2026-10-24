@@ -20,7 +20,9 @@ pub use character::{
 };
 pub use error::ProtocolError;
 pub use game::{
-    ArenaRankingDailyLoadPacket, ArenaRankingDailyUpdatePointsPacket, ArenaRankingInfoPacket,
+    ArenaFameInfoPacket, ArenaFameSeasonListPacket, ArenaArchiveRankRow, ArenaOldRankingInfoPacket,
+    ArenaRankRow, ArenaRankingDailyLoadPacket, ArenaRankingDailyUpdatePointsPacket,
+    ArenaRankingInfoPacket,
     AvailableChannelsPacket, BurningEventPacket, CashShopBuyResponsePacket, CashShopCoinsPacket,
     CashShopCropResponsePacket, CashShopWarehousePacket, CastSkillPacket,
     ChangeTamerModelPacket, DailyCheckEventInfoPacket, DailyCheckEventInfoRow,
@@ -87,6 +89,8 @@ pub use game::{
     Modern2143Packet, Unknown3247Packet, Unknown3248Packet,
     Unknown3249Packet, Modern3415Row, Modern3415Packet, Modern3417Row,
     Modern3417Packet, Modern3418Row, Modern3418Packet, Modern3419Packet,
+    GamTwoArenaRequestFamePacket, GamTwoRegionBuffPacket, Unknown3990Packet,
+    Modern3420Packet,
     GuildAuthorityUpdatePacket,
     GuildCreateFailPacket, GuildCreateSuccessPacket, GuildDeletePacket, GuildHistoricPacket,
     GuildInformationPacket, GuildInviteAcceptPacket, GuildInviteDenyPacket, GuildInviteFailPacket,
@@ -97,8 +101,8 @@ pub use game::{
     ItemSocketIdentifyPacket, ItemSocketInPacket, ItemSocketOutPacket, ItemStoragePacket,
     KillOnHitPacket, KillOnSkillPacket, LevelUpPacket, LoadBuffsPacket, LoadDropsPacket,
     LoadInventoryPacket, LoadMobBuffsPacket, LoadMobsPacket, LoadTamerPacket, LocalMapSwapPacket,
-    MapSwapPacket, MembershipPacket, MissHitPacket, ModernArenaOldRankingInfoPacket,
-    ModernArenaRankingInfoPacket, MonsterRespawnTimerPacket, MonsterRespawnTimerRow,
+    MapSwapPacket, MembershipPacket, MissHitPacket, MonsterRespawnTimerPacket,
+    MonsterRespawnTimerRow,
     NpcPurchaseResultPacket, NpcSellResultPacket, OtherTamerDetailDigimon,
     OtherTamerDetailInfoPacket, PartnerSkillErrorPacket, PartnerSwitchFailurePacket,
     PartnerSwitchPacket, PartyChangeLootTypePacket, PartyCreatedPacket, PartyInvitePacket,
