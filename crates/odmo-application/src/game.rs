@@ -5046,12 +5046,12 @@ impl GameApplication {
             .map_err(|error| GameFlowError::Storage(error.to_string()))?
             .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-        // The party-chat S→C packet shape is `[u32 sender_handler][string sender_name][string message]`.
+        // Party chat carries the sender as text: the client matches that name against the
+        // local tamer to suppress its own echo, so no handler id is on the wire.
         let mut writer =
             odmo_protocol::writer::PacketWriter::new(odmo_protocol::opcode::game::PARTY_CHAT);
-        writer.write_u32(character.general_handler);
-        writer.write_string(&character.name);
-        writer.write_string(&message);
+        writer.write_modern_utf8_string(&character.name);
+        writer.write_modern_utf8_string(&message);
         let packet = writer.finalize();
 
         // Broadcast to other party members through the live broadcast sink.

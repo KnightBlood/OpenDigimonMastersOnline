@@ -8023,15 +8023,15 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::ChatMessage { message })
             }
             game::WHISPER_MESSAGE => {
-                let target_name = reader.read_string()?;
-                let message = reader.read_string()?;
+                let target_name = reader.read_modern_utf8_string()?;
+                let message = reader.read_modern_utf8_string()?;
                 Ok(Self::WhisperMessage {
                     target_name,
                     message,
                 })
             }
             game::SHOUT_MESSAGE => {
-                let message = reader.read_string()?;
+                let message = reader.read_modern_utf8_string()?;
                 Ok(Self::ShoutMessage { message })
             }
             game::MEGAPHONE_MESSAGE => {
@@ -8517,7 +8517,7 @@ impl TryFrom<RawPacket> for GameRequest {
                 })
             }
             game::PARTY_CHAT => {
-                let message = reader.read_string()?;
+                let message = reader.read_modern_utf8_string()?;
                 Ok(Self::PartyChat { message })
             }
             game::PARTY_KICK => {
@@ -8585,7 +8585,7 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::GUILD_LEAVE => Ok(Self::GuildLeave),
             game::GUILD_MESSAGE => {
-                let message = reader.read_string()?;
+                let message = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildMessage { message })
             }
             game::GUILD_NOTICE => {
@@ -11009,6 +11009,52 @@ mod tests {
                 inviter_name: "Agun".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn message_family_requests_decode_modern_text() {
+        // Whisper carries the target before the message, so a legacy-shaped body
+        // desyncs the whole pair instead of only truncating one field.
+        let mut whisper = Vec::new();
+        whisper.extend_from_slice(&7_u16.to_le_bytes());
+        whisper.extend_from_slice(b"Dracmon");
+        whisper.extend_from_slice(&5_u16.to_le_bytes());
+        whisper.extend_from_slice(b"hello");
+        assert_eq!(
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::WHISPER_MESSAGE,
+                payload: whisper,
+            })
+            .expect("whisper should parse"),
+            GameRequest::WhisperMessage {
+                target_name: "Dracmon".to_string(),
+                message: "hello".to_string(),
+            }
+        );
+
+        let mut message = Vec::new();
+        message.extend_from_slice(&5_u16.to_le_bytes());
+        message.extend_from_slice(b"hello");
+        for opcode in [
+            game::SHOUT_MESSAGE,
+            game::GUILD_MESSAGE,
+            game::PARTY_CHAT,
+        ] {
+            let request = GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: opcode,
+                payload: message.clone(),
+            })
+            .unwrap_or_else(|error| panic!("opcode {opcode} should parse: {error}"));
+            let text = match request {
+                GameRequest::ShoutMessage { message }
+                | GameRequest::GuildMessage { message }
+                | GameRequest::PartyChat { message } => message,
+                other => panic!("opcode {opcode} decoded as {other:?}"),
+            };
+            assert_eq!(text, "hello");
+        }
     }
 
     #[test]
