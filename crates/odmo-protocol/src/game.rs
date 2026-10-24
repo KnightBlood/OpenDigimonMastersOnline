@@ -458,6 +458,7 @@ pub enum GameRequest {
     GuildMessage {
         message: String,
     },
+    /// `pGuild::ChangeNotice` C→S — opcode 2126. `[text notice]`.
     GuildNotice {
         notice: String,
     },
@@ -8701,7 +8702,7 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::GuildMessage { message })
             }
             game::GUILD_NOTICE => {
-                let notice = reader.read_string()?;
+                let notice = reader.read_modern_utf8_string()?;
                 Ok(Self::GuildNotice { notice })
             }
             game::GUILD_HISTORY => Ok(Self::GuildHistory),
@@ -11172,6 +11173,7 @@ mod tests {
         for opcode in [
             game::SHOUT_MESSAGE,
             game::GUILD_MESSAGE,
+            game::GUILD_NOTICE,
             game::PARTY_CHAT,
         ] {
             let request = GameRequest::try_from(RawPacket {
@@ -11183,6 +11185,7 @@ mod tests {
             let text = match request {
                 GameRequest::ShoutMessage { message }
                 | GameRequest::GuildMessage { message }
+                | GameRequest::GuildNotice { notice: message }
                 | GameRequest::PartyChat { message } => message,
                 other => panic!("opcode {opcode} decoded as {other:?}"),
             };
