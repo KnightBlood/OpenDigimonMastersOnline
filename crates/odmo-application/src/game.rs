@@ -3314,16 +3314,28 @@ impl GameApplication {
             .map_err(|error| GameFlowError::Storage(error.to_string()))?
             .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-        let mut writer = odmo_protocol::writer::PacketWriter::new(
-            odmo_protocol::opcode::game::AVAILABLE_RELATIONS,
-        );
-        writer.write_u16(character.friend_list.len().min(u16::MAX as usize) as u16);
-        for friend in &character.friend_list {
-            writer.write_string(&friend.name);
-            writer.write_u8(if friend.favorite { 1 } else { 0 });
-            writer.write_string(&friend.annotation);
-        }
-        Ok(vec![writer.finalize()])
+        // Each record leads with live presence, which only the broadcast registry knows,
+        // and the packet carries the block list as its second count-prefixed section.
+        let friends = character
+            .friend_list
+            .iter()
+            .map(|friend| odmo_types::RelationEntry {
+                name: friend.name.clone(),
+                connected: self
+                    .broadcast
+                    .as_ref()
+                    .is_some_and(|broadcast| broadcast.is_online(friend.character_id)),
+                annotation: friend.annotation.clone(),
+            })
+            .collect();
+
+        Ok(vec![
+            TamerRelationsPacket {
+                friends,
+                foes: character.foes.clone(),
+            }
+            .encode(),
+        ])
     }
 
     // ----- Season pass slice ----------------------------------------------------------
