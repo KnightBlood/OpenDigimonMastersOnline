@@ -42,7 +42,8 @@ use odmo_protocol::{
     PickItemPacket, QuestAvailableListPacket, QuestGoalUpdatePacket, RandomBoxListEntry,
     RandomBoxListResponsePacket, RandomBoxPurchaseResponsePacket, RecompenseGainPacket,
     RemoveBuffPacket, SealsPacket, ServerExperiencePacket, SpiritToDigimonResultPacket,
-    SplitItemPacket, TamerAttendancePacket, TamerChangeNamePacket, TamerRelationsPacket,
+    SplitItemPacket, SyncChatLine, SyncChatRecord, SyncNamedLine, SyncWhisperLine,
+    TamerAttendancePacket, TamerChangeNamePacket, TamerRelationsPacket,
     TamerWalkPacket, TamerXaiResourcesPacket, TimeRewardPacket, TradeAcceptPacket,
     TradeAddItemPacket, TradeAddMoneyPacket, TradeCancelPacket, TradeConfirmationPacket,
     TradeFinalConfirmationPacket, TradeInventoryLockPacket, TradeInventoryUnlockPacket,
@@ -2172,15 +2173,13 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                let mut writer = odmo_protocol::writer::PacketWriter::new(
-                    odmo_protocol::opcode::game::CHAT_MESSAGE_RESPONSE,
-                );
-                writer.write_u8(0); // chatType: general
-                writer.write_u8(1); // flag
-                writer.write_u32(character.general_handler); // source handler
-                writer.write_string(&message); // message
-                writer.write_u8(0); // terminator
-                Ok(vec![writer.finalize()])
+                Ok(vec![
+                    SyncChatRecord::Chat(vec![SyncChatLine {
+                        handler: character.general_handler,
+                        message,
+                    }])
+                    .encode(),
+                ])
             }
             // WhisperMessage — echo whisper back to client
             GameRequest::WhisperMessage {
@@ -2194,17 +2193,15 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                let mut writer = odmo_protocol::writer::PacketWriter::new(
-                    odmo_protocol::opcode::game::CHAT_MESSAGE_RESPONSE,
-                );
-                writer.write_u8(1); // chatType: whisper
-                writer.write_u8(1); // flag
-                writer.write_u8(0); // whisperResult: success
-                writer.write_string(&character.name); // sender name
-                writer.write_string(&target_name); // receiver name
-                writer.write_string(&message); // message
-                writer.write_u8(0); // terminator
-                Ok(vec![writer.finalize()])
+                Ok(vec![
+                    SyncChatRecord::Whisper(vec![SyncWhisperLine {
+                        result: 0, // delivered
+                        sender: character.name,
+                        receiver: target_name,
+                        message,
+                    }])
+                    .encode(),
+                ])
             }
             // ShoutMessage — echo shout back to client
             GameRequest::ShoutMessage { message } => {
@@ -2215,15 +2212,13 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                let mut writer = odmo_protocol::writer::PacketWriter::new(
-                    odmo_protocol::opcode::game::CHAT_MESSAGE_RESPONSE,
-                );
-                writer.write_u8(2); // chatType: shout
-                writer.write_u8(1); // flag
-                writer.write_u32(character.general_handler); // source handler
-                writer.write_string(&message); // message
-                writer.write_u8(0); // terminator
-                Ok(vec![writer.finalize()])
+                Ok(vec![
+                    SyncChatRecord::Shout(vec![SyncNamedLine {
+                        sender: character.name,
+                        message,
+                    }])
+                    .encode(),
+                ])
             }
             // MegaphoneMessage — echo megaphone back to client
             GameRequest::MegaphoneMessage {
@@ -2237,15 +2232,16 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                let mut writer = odmo_protocol::writer::PacketWriter::new(
-                    odmo_protocol::opcode::game::CHAT_MESSAGE_RESPONSE,
-                );
-                writer.write_u8(3); // chatType: megaphone
-                writer.write_u8(1); // flag
-                writer.write_u32(character.general_handler); // source handler
-                writer.write_string(&message); // message
-                writer.write_u8(0); // terminator
-                Ok(vec![writer.finalize()])
+                // Record 12 would brand the line with the megaphone item, which needs the
+                // consumed item's id; the request only carries an inventory slot whose
+                // framing is still unresolved, so the text travels as a plain shout.
+                Ok(vec![
+                    SyncChatRecord::Shout(vec![SyncNamedLine {
+                        sender: character.name,
+                        message,
+                    }])
+                    .encode(),
+                ])
             }
             // TamerReaction — echo reaction back to client
             GameRequest::TamerReaction { reaction_type } => {

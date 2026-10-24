@@ -642,6 +642,74 @@ pub enum TamerSummonRequest {
     },
 }
 
+/// One record of the sync stream. Chat text has no opcode of its own: the client's router
+/// loops `[u1 type]` records inside opcode 1006 and dispatches 7 chat, 8 whisper and 11
+/// shout into the chat presenter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyncChatLine {
+    pub handler: u32,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyncWhisperLine {
+    pub result: u8,
+    pub sender: String,
+    pub receiver: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyncNamedLine {
+    pub sender: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SyncChatRecord {
+    /// `[u1 7][u1 count][count x {u4 handler, text message}]`
+    Chat(Vec<SyncChatLine>),
+    /// `[u1 8][u1 count][count x {u1 result, text sender, text receiver, text message}]`
+    Whisper(Vec<SyncWhisperLine>),
+    /// `[u1 11][u1 count][count x {text sender, text message}]`
+    Shout(Vec<SyncNamedLine>),
+}
+
+impl SyncChatRecord {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut writer = PacketWriter::new(game::CHAT_MESSAGE_RESPONSE);
+        match self {
+            SyncChatRecord::Chat(lines) => {
+                writer.write_u8(7);
+                writer.write_u8(clamp_u8_len(lines.len()));
+                for line in lines {
+                    writer.write_u32(line.handler);
+                    writer.write_modern_utf8_string(&line.message);
+                }
+            }
+            SyncChatRecord::Whisper(lines) => {
+                writer.write_u8(8);
+                writer.write_u8(clamp_u8_len(lines.len()));
+                for line in lines {
+                    writer.write_u8(line.result);
+                    writer.write_modern_utf8_string(&line.sender);
+                    writer.write_modern_utf8_string(&line.receiver);
+                    writer.write_modern_utf8_string(&line.message);
+                }
+            }
+            SyncChatRecord::Shout(lines) => {
+                writer.write_u8(11);
+                writer.write_u8(clamp_u8_len(lines.len()));
+                for line in lines {
+                    writer.write_modern_utf8_string(&line.sender);
+                    writer.write_modern_utf8_string(&line.message);
+                }
+            }
+        }
+        writer.finalize()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvolutionUnlockItem {
     pub item_id: u32,
@@ -11337,6 +11405,51 @@ mod tests {
             decode(&[4, 9, 1]),
             Err(ProtocolError::UnsupportedSummonCase(9))
         ));
+    }
+
+    #[test]
+    fn sync_chat_records_write_one_typed_record() {
+        fn payload_of(frame: &[u8]) -> Vec<u8> {
+            PacketReader::from_frame(frame)
+                .expect("record frame should frame")
+                .payload
+        }
+
+        let chat = SyncChatRecord::Chat(vec![SyncChatLine {
+            handler: 7,
+            message: "hello".to_string(),
+        }])
+        .encode();
+        let mut expected_chat = vec![7_u8, 1, 7, 0, 0, 0, 5, 0];
+        expected_chat.extend_from_slice(b"hello");
+        assert_eq!(payload_of(&chat), expected_chat);
+
+        let whisper = SyncChatRecord::Whisper(vec![SyncWhisperLine {
+            result: 0,
+            sender: "Tai".to_string(),
+            receiver: "Kari".to_string(),
+            message: "hi".to_string(),
+        }])
+        .encode();
+        let mut expected_whisper = vec![8_u8, 1, 0, 3, 0];
+        expected_whisper.extend_from_slice(b"Tai");
+        expected_whisper.extend_from_slice(&4_u16.to_le_bytes());
+        expected_whisper.extend_from_slice(b"Kari");
+        expected_whisper.extend_from_slice(&2_u16.to_le_bytes());
+        expected_whisper.extend_from_slice(b"hi");
+        assert_eq!(payload_of(&whisper), expected_whisper);
+
+        // A shout carries no handler: the client resolves the speaker from the name.
+        let shout = SyncChatRecord::Shout(vec![SyncNamedLine {
+            sender: "Matt".to_string(),
+            message: "look".to_string(),
+        }])
+        .encode();
+        let mut expected_shout = vec![11_u8, 1, 4, 0];
+        expected_shout.extend_from_slice(b"Matt");
+        expected_shout.extend_from_slice(&4_u16.to_le_bytes());
+        expected_shout.extend_from_slice(b"look");
+        assert_eq!(payload_of(&shout), expected_shout);
     }
 
     #[test]
