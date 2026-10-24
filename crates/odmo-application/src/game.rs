@@ -5701,16 +5701,7 @@ impl GameApplication {
         // Reject empty or oversized names. Legacy limits names to 16 characters.
         let trimmed = new_name.trim();
         if trimmed.is_empty() || trimmed.len() > 16 {
-            return Ok(vec![
-                TamerChangeNamePacket {
-                    result: 2, // failure: invalid length
-                    item_slot: -1,
-                    old_name: character.name.clone(),
-                    new_name: trimmed.to_string(),
-                    note: String::new(),
-                }
-                .encode(),
-            ]);
+            return Ok(vec![TamerChangeNamePacket::Rejected { result: 1 }.encode()]);
         }
 
         // Reject duplicates.
@@ -5721,38 +5712,34 @@ impl GameApplication {
         if let Some(other) = conflict
             && other.id != character.id
         {
-            return Ok(vec![
-                TamerChangeNamePacket {
-                    result: 3, // failure: name taken
-                    item_slot: -1,
-                    old_name: character.name.clone(),
-                    new_name: trimmed.to_string(),
-                    note: String::new(),
-                }
-                .encode(),
-            ]);
+            return Ok(vec![TamerChangeNamePacket::Rejected { result: 1 }.encode()]);
         }
 
+        let previous_name = character.name.clone();
         let new_name_string = trimmed.to_string();
         self.repository
             .update_tamer_name(character_id, &new_name_string)
             .map_err(|error| GameFlowError::Storage(error.to_string()))?;
 
-        let packet = TamerChangeNamePacket {
-            result: 1, // success
+        let packet = TamerChangeNamePacket::Applied {
             item_slot: -1,
-            old_name: character.name,
-            new_name: new_name_string,
-            note: String::new(),
+            name: new_name_string.clone(),
         }
         .encode();
 
+        // Viewers nearby need the previous name, because they still hold the old
+        // object handle; only the requester receives the applied form.
         if let Some(broadcast) = &self.broadcast {
+            let nearby = TamerChangeNamePacket::Nearby {
+                previous: previous_name,
+                next: new_name_string,
+            }
+            .encode();
             let _ = broadcast.send_to_visible(
                 character.map_id,
                 character.channel,
                 character.id,
-                &packet,
+                &nearby,
             );
         }
 

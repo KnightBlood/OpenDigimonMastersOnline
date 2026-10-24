@@ -6321,26 +6321,46 @@ impl ChangeTamerModelPacket {
 }
 
 /// `TamerChangeName` — opcode 1311.
-/// `[i32 result][string old_name][string new_name][i32 item_slot][u8 flag]`
+///
+/// The leading result code selects the body, and the reader stops at the code for
+/// the two rejection forms, so an unrecognised code would be parsed as an applied
+/// rename. Rejected is `[i32 result]`, Nearby is
+/// `[i32 result = 3][string previous][string next]`, and Applied is
+/// `[i32 result = 0][i32 item_slot][string name]`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TamerChangeNamePacket {
-    pub result: i32,
-    pub item_slot: i32,
-    pub old_name: String,
-    pub new_name: String,
-    pub note: String, // unresolved (third string slot; empty still writes the 2-byte prefix)
+pub enum TamerChangeNamePacket {
+    /// The name was not applied; the client only clears the pending cash request.
+    Rejected {
+        result: i32,
+    },
+    /// A tamer nearby changed name, carried to every other viewer.
+    Nearby {
+        previous: String,
+        next: String,
+    },
+    /// The requester's own rename completed.
+    Applied {
+        item_slot: i32,
+        name: String,
+    },
 }
 
 impl TamerChangeNamePacket {
     pub fn encode(&self) -> Vec<u8> {
-        // Modern wire: {u4 result; str old; str new; u4 item_slot; str note} -
-        // the legacy trailing status byte became a third string field.
         let mut writer = PacketWriter::new(game::TAMER_NAME_CHANGE);
-        writer.write_i32(self.result);
-        writer.write_modern_utf8_string(&self.old_name);
-        writer.write_modern_utf8_string(&self.new_name);
-        writer.write_i32(self.item_slot);
-        writer.write_modern_utf8_string(&self.note);
+        match self {
+            Self::Rejected { result } => writer.write_i32(*result),
+            Self::Nearby { previous, next } => {
+                writer.write_i32(3);
+                writer.write_modern_utf8_string(previous);
+                writer.write_modern_utf8_string(next);
+            }
+            Self::Applied { item_slot, name } => {
+                writer.write_i32(0);
+                writer.write_i32(*item_slot);
+                writer.write_modern_utf8_string(name);
+            }
+        }
         writer.finalize()
     }
 }
@@ -13259,24 +13279,39 @@ mod tests {
             ]
         );
 
-        // 1311 name change: third string replaces the legacy trailing flag.
-        let rename = TamerChangeNamePacket {
-            result: 1,
-            item_slot: -1,
-            old_name: "Aa".into(),
-            new_name: "Bb".into(),
-            note: String::new(),
+        // 1311 name change: the result code selects the body, and a rejection ends
+        // after the code so nothing else is read.
+        let rejected = TamerChangeNamePacket::Rejected { result: 1 }.encode();
+        let rejected_raw = PacketReader::from_frame(&rejected).expect("frame should decode");
+        assert_eq!(rejected_raw.payload, [1, 0, 0, 0]);
+
+        let nearby = TamerChangeNamePacket::Nearby {
+            previous: "Aa".into(),
+            next: "Bb".into(),
         }
         .encode();
-        let rename_raw = PacketReader::from_frame(&rename).expect("frame should decode");
+        let nearby_raw = PacketReader::from_frame(&nearby).expect("frame should decode");
         assert_eq!(
-            rename_raw.payload,
+            nearby_raw.payload,
             [
-                1, 0, 0, 0,          // result
-                2, 0, b'A', b'a',    // old
-                2, 0, b'B', b'b',    // new
-                0xFF, 0xFF, 0xFF, 0xFF, // item slot
-                0, 0,                // empty note keeps its 2-byte prefix
+                3, 0, 0, 0,          // result
+                2, 0, b'A', b'a',    // previous name
+                2, 0, b'B', b'b',    // next name
+            ]
+        );
+
+        let applied = TamerChangeNamePacket::Applied {
+            item_slot: -1,
+            name: "Bb".into(),
+        }
+        .encode();
+        let applied_raw = PacketReader::from_frame(&applied).expect("frame should decode");
+        assert_eq!(
+            applied_raw.payload,
+            [
+                0, 0, 0, 0,                // result
+                0xFF, 0xFF, 0xFF, 0xFF,    // item slot
+                2, 0, b'B', b'b',          // new name
             ]
         );
 
