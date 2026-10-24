@@ -965,10 +965,10 @@ pub struct NpcSellRow {
     pub stack: u16,  // unresolved
 }
 
-/// `NpcSellResult` — opcode 3916 (mirrored from the C2S sell request).
-/// Modern receive parser (0xDA3E50) reads the i64 money field, a u1 row count
-/// and one {u1 kind; u4 serial; u2 stack} row per counted item, pings event 89
-/// with the money amount and keeps the sold rows briefly for the UI.
+/// `NpcSellResult` — opcode 3916 (mirrored from the C2S sell request). Modern receive
+/// parser reads the i64 money field, a u1 row count and one {u1 kind; u4 serial; u2
+/// stack} row per counted item, pings event 89 with the money amount and keeps the sold
+/// rows briefly for the UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NpcSellResultPacket {
     pub remaining_bits: i64,
@@ -4598,10 +4598,10 @@ pub struct TamerRelationsPacket {
 impl TamerRelationsPacket {
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = PacketWriter::new(game::AVAILABLE_RELATIONS);
-        // Modern wire: receive-side parser (0xD9F3B0) reads
-        // {u2 friends; friends x {u1 presence-flag; str2; str2}-{u2 foes;
-        // foes x {str2; str2}}}; all strings are {u2 len; bytes} with the
-        // empty form still consuming the 2-byte prefix.
+        // Modern wire: receive-side parser reads {u2 friends; friends x {u1
+        // presence-flag; str2; str2}-{u2 foes; foes x {str2; str2}}}; all
+        // strings are {u2 len; bytes} with the empty form still consuming the
+        // 2-byte prefix.
         writer.write_i16(clamp_i16_len(self.friends.len()));
         for friend in &self.friends {
             writer.write_u8(friend.connected as u8);
@@ -5184,10 +5184,9 @@ impl EncyclopediaReceiveRewardItemPacket {
     }
 }
 
-/// `EncyclopediaDeckBuffUse` packet — opcode 3237.
-/// Modern parser `EncyBook_DeckEff_RecvParser` (0xDB3700) reads
-/// `{u2 option_index; u4 value}` and emits event 161. Consumer 0xE437E0
-/// validates `option_index == 100` as the clear-buffs sentinel.
+/// `EncyclopediaDeckBuffUse` packet — opcode 3237. Modern parser
+/// `EncyBook_DeckEff_RecvParser` reads `{u2 option_index; u4 value}` and emits event
+/// 161. Consumer validates `option_index == 100` as the clear-buffs sentinel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EncyclopediaDeckBuffUsePacket {
     pub option_index: u16,
@@ -5288,10 +5287,9 @@ impl DigimonIncubaterErrorPacket {
     }
 }
 
-/// `IncubaterList` notice — opcode 3226.
-/// Modern parser (0xDB2830) always reads three {u4; u4; u4} rows, hands each
-/// to the slot builder and dispatches an empty event 408. Row field meanings
-/// stay unattributed.
+/// `IncubaterList` notice — opcode 3226. Modern parser always reads three {u4; u4; u4}
+/// rows, hands each to the slot builder and dispatches an empty event 408. Row field
+/// meanings stay unattributed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DigimonIncubaterListPacket {
     pub rows: Vec<(u32, u32, u32)>, // always 3 on the modern read side
@@ -5341,10 +5339,9 @@ impl DigimonIncubaterSlotChangePacket {
     }
 }
 
-/// `InchantInfo` notice — opcode 3214.
-/// Modern parser (0xDCDA00) reads one u4 digimon handler, one u2 anchor value
-/// and five u2s that the client inserts into fixed positions 0, 1, 2, 4 and
-/// 6 of that digimon's enchant-info list; individual slot meanings stay
+/// `InchantInfo` notice — opcode 3214. Modern parser reads one u4 digimon handler, one
+/// u2 anchor value and five u2s that the client inserts into fixed positions 0, 1, 2, 4
+/// and 6 of that digimon's enchant-info list; individual slot meanings stay
 /// unattributed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigimonInchantInfoPacket {
@@ -5366,14 +5363,12 @@ impl DigimonInchantInfoPacket {
     }
 }
 
-/// `DecreaseDigimonInchant` notice — opcode 1083.
-/// Modern parser (0xD96B90) applies everything to the local digimon: it reads
-/// one u2 anchor (stored client-side as value - 1) and fourteen more u2s in
-/// two sequential runs of seven; the client then pairs run one with run two
-/// into seven info-list entries, decrements one 69-byte skill-table row
-/// (zeroing it on underflow) and pings event 718 with the digimon plus an
-/// empty event-476 alongside the tactics-fail feedback. Element meanings
-/// stay unattributed.
+/// `DecreaseDigimonInchant` notice — opcode 1083. Modern parser applies everything to
+/// the local digimon: it reads one u2 anchor (stored client-side as value - 1) and
+/// fourteen more u2s in two sequential runs of seven; the client then pairs run one
+/// with run two into seven info-list entries, decrements one 69-byte skill-table row
+/// (zeroing it on underflow) and pings event 718 with the digimon plus an empty
+/// event-476 alongside the tactics-fail feedback. Element meanings stay unattributed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigimonDecreaseInchantPacket {
     pub anchor: u16,       // stored as (value - 1)
@@ -5394,12 +5389,11 @@ impl DigimonDecreaseInchantPacket {
     }
 }
 
-/// `DigimonInchant` notice — opcode 1075.
-/// Modern parser (0xD95DF0) reads one u4 digimon handler, one u2 anchor
-/// (stored as value - 1) and fourteen u2s in two runs of seven, mirroring the
-/// decrease variant; the pairing loop fills seven info-list entries and the
-/// client recomputes the digimon stats through the base-stats, evolution and
-/// digimon tables, dispatching events 41, 167 and 476.
+/// `DigimonInchant` notice — opcode 1075. Modern parser reads one u4 digimon handler,
+/// one u2 anchor (stored as value - 1) and fourteen u2s in two runs of seven, mirroring
+/// the decrease variant; the pairing loop fills seven info-list entries and the client
+/// recomputes the digimon stats through the base-stats, evolution and digimon tables,
+/// dispatching events 41, 167 and 476.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigimonInchantPacket {
     pub handler: u32,         // resolved by the client digimon lookup
@@ -5463,10 +5457,9 @@ impl ItemSlotSizePacket {
     }
 }
 
-/// `UseFailure` notice — opcode 3902.
-/// Modern parser (0xDAD060) reads {u2 code; u4 item serial; u4 failure kind};
-/// kind 1 resolves the serial against the CItemTable row and opens a failure
-/// message box carrying the code, kind 13 pings event 154, kind 19 beeps and
+/// `UseFailure` notice — opcode 3902. Modern parser reads {u2 code; u4 item serial; u4
+/// failure kind}; kind 1 resolves the serial against the CItemTable row and opens a
+/// failure message box carrying the code, kind 13 pings event 154, kind 19 beeps and
 /// remaining kinds only reset the client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ItemUseFailurePacket {
@@ -5500,11 +5493,10 @@ impl PortableItemFailPacket {
     }
 }
 
-/// `CropMoney` notice — opcode 3911.
-/// Modern parser (0xDA5280) reads four u4s: the first two form one i64 and
-/// the trailing pair feeds the coin-delta sums; the client closes three fixed
-/// UI handlers, plays the coin sound, builds the money display rings and
-/// pings event 671 with the i64 sum.
+/// `CropMoney` notice — opcode 3911. Modern parser reads four u4s: the first two form
+/// one i64 and the trailing pair feeds the coin-delta sums; the client closes three
+/// fixed UI handlers, plays the coin sound, builds the money display rings and pings
+/// event 671 with the i64 sum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ItemCropMoneyPacket {
     pub first_amount_lo: u32,  // low half of the first i64 amount
@@ -7028,10 +7020,9 @@ impl GuildAuthorityUpdatePacket {
     }
 }
 
-/// `ItemScanNotice` notice — opcode 3988 (receive table).
-/// Modern parser (0xDBE370) reads `{u4; i64; u2 count; count x u2}` and
-/// assembles one 12-byte list node per row before event 96. Field meanings
-/// stay unattributed; the row count drives the list length.
+/// `ItemScanNotice` notice — opcode 3988 (receive table). Modern parser reads `{u4;
+/// i64; u2 count; count x u2}` and assembles one 12-byte list node per row before event
+/// 96. Field meanings stay unattributed; the row count drives the list length.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScanNoticePacket {
     pub first: u32,   // unresolved
@@ -7052,10 +7043,9 @@ impl ItemScanNoticePacket {
     }
 }
 
-/// `AdvertBossCount` notice — opcode 1059.
-/// Modern parser (0xDAF960) reads three u4 fields, then either resolves the
-/// existing advert-boss entry or creates one; all three field meanings stay
-/// unattributed.
+/// `AdvertBossCount` notice — opcode 1059. Modern parser reads three u4 fields, then
+/// either resolves the existing advert-boss entry or creates one; all three field
+/// meanings stay unattributed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AdvertBossCountNoticePacket {
     pub first: u32,   // unresolved
@@ -7073,9 +7063,8 @@ impl AdvertBossCountNoticePacket {
     }
 }
 
-/// `AdvertBossDie` notice — opcode 1061.
-/// Modern parser (0xDAF8E0) reads two u4 fields and hands the first to the
-/// removal dispatch; the second gates whether the dispatch runs.
+/// `AdvertBossDie` notice — opcode 1061. Modern parser reads two u4 fields and hands
+/// the first to the removal dispatch; the second gates whether the dispatch runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AdvertBossDieNoticePacket {
     pub first: u32,   // unresolved
@@ -7091,10 +7080,9 @@ impl AdvertBossDieNoticePacket {
     }
 }
 
-/// `AdvertBossCreate` notice — opcode 1060.
-/// Modern parser (0xDAFAD0) reads three u4 fields: the first keys a CMapTable
-/// row, the third keys a CMonsterTable row whose name is copied by the client
-/// and the second stays unresolved; the client then pings event 121 and
+/// `AdvertBossCreate` notice — opcode 1060. Modern parser reads three u4 fields: the
+/// first keys a CMapTable row, the third keys a CMonsterTable row whose name is copied
+/// by the client and the second stays unresolved; the client then pings event 121 and
 /// registers the advert-boss entry when the local state matches.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AdvertBossCreateNoticePacket {
@@ -7113,12 +7101,11 @@ impl AdvertBossCreateNoticePacket {
     }
 }
 
-/// `DigimonSkillLimitOpen` notice — opcode 3245.
-/// Modern parser (0xDCA180): a nonzero first u4 short-circuits into a plain
-/// disable call; otherwise the client updates one digimon row (bounded index
-/// 19) with a 28-byte inline skill blob, validates the u4 skill index against
-/// a 200-entry skill table using the final u4, and pings event 477. Blob and
-/// flag meanings stay unattributed.
+/// `DigimonSkillLimitOpen` notice — opcode 3245. Modern parser: a nonzero first u4
+/// short-circuits into a plain disable call; otherwise the client updates one digimon
+/// row (bounded index 19) with a 28-byte inline skill blob, validates the u4 skill
+/// index against a 200-entry skill table using the final u4, and pings event 477. Blob
+/// and flag meanings stay unattributed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigimonSkillLimitOpenPacket {
     pub state: u32,             // unresolved (0 = full update path)
@@ -7168,8 +7155,8 @@ impl MacroSuccessNoticePacket {
     }
 }
 
-/// Dropped-slot notice — opcodes 1071 and 3228 (shared parser 0xD866F0):
-/// the client consumes one u4 and discards it without dispatching.
+/// Dropped-slot notice — opcodes 1071 and 3228 (shared parser): the client consumes one
+/// u4 and discards it without dispatching.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DroppedSlotNoticePacket {
     pub reserved: u32, // unresolved (read and dropped)
@@ -7183,12 +7170,11 @@ impl DroppedSlotNoticePacket {
     }
 }
 
-/// `GetExp` notice — opcode 1018.
-/// Modern parser (0xDA6890) reads five i64 quantity pairs interleaved with
-/// two u4 fields: `{i64; i64; i64; u4; i64; i64; u4}` (48 bytes). All five
-/// pairs go through the same x100 fixed-point conversion; the first trailing
-/// u4 is consumed as u16 and the last feeds a float exp path. Individual
-/// pair meanings stay unattributed.
+/// `GetExp` notice — opcode 1018. Modern parser reads five i64 quantity pairs
+/// interleaved with two u4 fields: `{i64; i64; i64; u4; i64; i64; u4}` (48 bytes). All
+/// five pairs go through the same x100 fixed-point conversion; the first trailing u4 is
+/// consumed as u16 and the last feeds a float exp path. Individual pair meanings stay
+/// unattributed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameGetExpNoticePacket {
     pub first: i64,    // unresolved
@@ -7214,11 +7200,10 @@ impl GameGetExpNoticePacket {
     }
 }
 
-/// `TargetInfo` notice — opcode 1017.
-/// Modern parser (0xDA6210) reads `{u4 target handler; u1 flag; u4; u4}`;
-/// the handler resolves through the entity lookup and the flag feeds a slot
-/// setter, while the last two u4 fields are stored verbatim on the tracked
-/// entity (their delta semantics stay unattributed).
+/// `TargetInfo` notice — opcode 1017. Modern parser reads `{u4 target handler; u1 flag;
+/// u4; u4}`; the handler resolves through the entity lookup and the flag feeds a slot
+/// setter, while the last two u4 fields are stored verbatim on the tracked entity
+/// (their delta semantics stay unattributed).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameTargetInfoPacket {
     pub target_handler: u32, // resolved by the client entity lookup
@@ -7238,11 +7223,10 @@ impl GameTargetInfoPacket {
     }
 }
 
-/// `ChangeStat` notice — opcode 1084.
-/// Modern parser (0xDAC0F0) reads `{u4 handler; u2 count; count x {u2 stat;
-/// u4 value}}`; stat selectors 1..10 and 12 dispatch into distinct setters
-/// (9 renders a float), other selectors are skipped. After the loop the
-/// client pings an empty event 590 (type 13) or 476 (type 11).
+/// `ChangeStat` notice — opcode 1084. Modern parser reads `{u4 handler; u2 count; count
+/// x {u2 stat; u4 value}}`; stat selectors 1.10 and 12 dispatch into distinct setters
+/// (9 renders a float), other selectors are skipped. After the loop the client pings an
+/// empty event 590 (type 13) or 476 (type 11).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameChangeStatPacket {
     pub handler: u32, // resolved by the client entity lookup
@@ -7717,9 +7701,9 @@ impl SkillUpdateCooldownPacket {
     }
 }
 
-/// `GameHpRate` notice — opcode 1007.
-/// Modern parser (0xDA6EB0) reads `{u4 handler_id; u1 rate}`; a non-zero id
-/// resolves the entity and invokes its HP-rate setter (vm+108) with the rate.
+/// `GameHpRate` notice — opcode 1007. Modern parser reads `{u4 handler_id; u1 rate}`; a
+/// non-zero id resolves the entity and invokes its HP-rate setter (vm+108) with the
+/// rate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameHpRatePacket {
     pub handler_id: u32,
@@ -7752,9 +7736,8 @@ impl GameLevelUpPacket {
     }
 }
 
-/// `GameBattleOn` notice — opcode 1034.
-/// Modern parser (0xDA6770) reads `{u4 handler_id}` and flags the resolved
-/// entity as in-battle (vm+192 call); zero ids are ignored client-side.
+/// `GameBattleOn` notice — opcode 1034. Modern parser reads `{u4 handler_id}` and flags
+/// the resolved entity as in-battle (vm+192 call); zero ids are ignored client-side.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameBattleOnPacket {
     pub handler_id: u32,
@@ -7768,9 +7751,9 @@ impl GameBattleOnPacket {
     }
 }
 
-/// `GameBattleOff` notice — opcode 1035.
-/// Modern parser (0xDA67E0) reads `{u4 handler_id}`, clears the entity battle
-/// state and resets a monster-only field (+0x1332) for CMonster objects.
+/// `GameBattleOff` notice — opcode 1035. Modern parser reads `{u4 handler_id}`, clears
+/// the entity battle state and resets a monster-only field (+0x1332) for CMonster
+/// objects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameBattleOffPacket {
     pub handler_id: u32,
@@ -7784,10 +7767,9 @@ impl GameBattleOffPacket {
     }
 }
 
-/// `GameHealUp` notice — opcode 1023.
-/// Modern parser (0xDA6D70) reads `{u4 handler_id; u4 a; u4 b; u4 c}`, resolves
-/// the entity (class checks 11/13 = partner digimon family) and invokes three
-/// sequential status setters (status-object vtable +27/+29/+30). Setter
+/// `GameHealUp` notice — opcode 1023. Modern parser reads `{u4 handler_id; u4 a; u4 b;
+/// u4 c}`, resolves the entity (class checks 11/13 = partner digimon family) and
+/// invokes three sequential status setters (status-object vtable +27/+29/+30). Setter
 /// semantics are unattributed; wire field order is preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameHealUpPacket {
@@ -7808,9 +7790,9 @@ impl GameHealUpPacket {
     }
 }
 
-/// `GameTing` notice — opcode 1053.
-/// Modern parser (0xDD0780) reads `{u4 handler_id}`, resolves the entity and
-/// plays the surprise-mark effect plus the "SystemEnemyWar" entity chat line.
+/// `GameTing` notice — opcode 1053. Modern parser reads `{u4 handler_id}`, resolves the
+/// entity and plays the surprise-mark effect plus the "SystemEnemyWar" entity chat
+/// line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameTingPacket {
     pub handler_id: u32,
@@ -7824,11 +7806,10 @@ impl GameTingPacket {
     }
 }
 
-/// `GameEmoticon` notice — opcode 1058.
-/// Modern parser (0xDA48A0) reads `{u4 handler_id; u4 emotion_id; u4 flag}`,
-/// resolves `emotion_id` through table 17 (CEmotionTable) and applies it to the
-/// entity; flag == 1 also plays the aura variant. Entities of type 13 raise
-/// event 669 afterwards.
+/// `GameEmoticon` notice — opcode 1058. Modern parser reads `{u4 handler_id; u4
+/// emotion_id; u4 flag}`, resolves `emotion_id` through table 17 (CEmotionTable) and
+/// applies it to the entity; flag == 1 also plays the aura variant. Entities of type 13
+/// raise event 669 afterwards.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameEmoticonPacket {
     pub handler_id: u32,
@@ -7846,9 +7827,8 @@ impl GameEmoticonPacket {
     }
 }
 
-/// `GameStartMessage` notice — opcode 1047.
-/// Modern parser (0xDACC50) reads `{u1 count; count x {u2 len; len x bytes}}`
-/// (strings through the standard reader 0xD07520, capped at 512 bytes) and
+/// `GameStartMessage` notice — opcode 1047. Modern parser reads `{u1 count; count x {u2
+/// len; len x bytes}}` (strings through the standard reader, capped at 512 bytes) and
 /// delivers each to the message UI via event 42.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameStartMessagePacket {
@@ -7866,10 +7846,9 @@ impl GameStartMessagePacket {
     }
 }
 
-/// `GameDiedAlready` notice — opcode 1052.
-/// Modern parser (0xDA4B30) advances past a single `{u2}` and clears the
-/// corpse-requeue party entry plus the digi-death fields; the u2 value itself
-/// is unattributed (skipped client-side).
+/// `GameDiedAlready` notice — opcode 1052. Modern parser advances past a single `{u2}`
+/// and clears the corpse-requeue party entry plus the digi-death fields; the u2 value
+/// itself is unattributed (skipped client-side).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameDiedAlreadyPacket {
     pub reserved: u16, // unresolved (skipped client-side)
@@ -7883,10 +7862,9 @@ impl GameDiedAlreadyPacket {
     }
 }
 
-/// `SvrChannelInfo` notice — opcode 1713.
-/// Modern parser (0xDA0CD0) loops `n x {u1 offset; u1 byte}` pairs until an
-/// 0xFF offset terminator and assembles the 32-byte status buffer delivered
-/// with event 118. Slot byte meanings are unattributed; offsets beyond 31 are
+/// `SvrChannelInfo` notice — opcode 1713. Modern parser loops `n x {u1 offset; u1
+/// byte}` pairs until an 0xFF offset terminator and assembles the 32-byte status buffer
+/// delivered with event 118. Slot byte meanings are unattributed; offsets beyond 31 are
 /// out of the client's slot range and rejected here.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SvrChannelInfoPacket {
@@ -7911,10 +7889,9 @@ fn write_buddy_string(writer: &mut PacketWriter, value: &str) {
     writer.write_modern_utf8_string(value);
 }
 
-/// `BuddyAdd` notice — opcode 2401.
-/// Modern parser (0xD9F0C0) reads `{u1 flag; {u2 len; len x bytes}}` and
-/// dispatches into the buddy UI with an add classification byte. The flag's
-/// exact role is unattributed.
+/// `BuddyAdd` notice — opcode 2401. Modern parser reads `{u1 flag; {u2 len; len x
+/// bytes}}` and dispatches into the buddy UI with an add classification byte. The
+/// flag's exact role is unattributed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuddyAddPacket {
     pub flag: u8, // unresolved
@@ -7930,9 +7907,8 @@ impl BuddyAddPacket {
     }
 }
 
-/// `BuddyBan` notice — opcode 2403.
-/// Modern parser (0xD9F190) reads one `{u2 len; len x bytes}` string and
-/// dispatches a ban-state message to the friends UI.
+/// `BuddyBan` notice — opcode 2403. Modern parser reads one `{u2 len; len x bytes}`
+/// string and dispatches a ban-state message to the friends UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuddyBanPacket {
     pub name: String,
@@ -7946,8 +7922,8 @@ impl BuddyBanPacket {
     }
 }
 
-/// `BuddyNotFound` notice — opcode 2407.
-/// Modern parser (0xD9F740) reads one `{u2 len; len x bytes}` string.
+/// `BuddyNotFound` notice — opcode 2407. Modern parser reads one `{u2 len; len x
+/// bytes}` string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuddyNotFoundPacket {
     pub name: String,
@@ -7961,9 +7937,8 @@ impl BuddyNotFoundPacket {
     }
 }
 
-/// `BuddyOff` notice — opcode 2409.
-/// Modern parser (0xD9F2F0) reads one `{u2 len; len x bytes}` string and
-/// dispatches an offline-state update (same event as the on-notice).
+/// `BuddyOff` notice — opcode 2409. Modern parser reads one `{u2 len; len x bytes}`
+/// string and dispatches an offline-state update (same event as the on-notice).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuddyOffPacket {
     pub name: String,
@@ -7977,9 +7952,8 @@ impl BuddyOffPacket {
     }
 }
 
-/// `BuddyChangeName` notice — opcode 2410.
-/// Modern parser (0xD9F7E0) reads `{u1 flag; {u2 len; ..}; {u2 len; ..}}`.
-/// The flag's exact role is unattributed; the string order is wire order.
+/// `BuddyChangeName` notice — opcode 2410. Modern parser reads `{u1 flag; {u2 len;.};
+/// {u2 len;.}}`. The flag's exact role is unattributed; the string order is wire order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuddyChangeNamePacket {
     pub flag: u8, // unresolved
@@ -12201,7 +12175,7 @@ mod tests {
 
     #[test]
     fn deck_buff_notice_encodes_u2_option_then_u4_value() {
-        // option_index 100 = clear-buffs sentinel (consumer 0xE437E0).
+        // option_index 100 = clear-buffs sentinel (consumer).
         let packet = EncyclopediaDeckBuffUsePacket { option_index: 100, value: 7 }.encode();
         let raw = PacketReader::from_frame(&packet).expect("frame should decode");
         assert_eq!(raw.packet_type, game::ENCYCLOPEDIA_DECK_BUFF);

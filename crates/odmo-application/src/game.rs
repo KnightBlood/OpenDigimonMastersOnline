@@ -8226,9 +8226,9 @@ impl GameApplication {
             .update_deck_buff(character_id, new_buff)
             .map_err(|error| GameFlowError::Storage(error.to_string()))?;
 
-        // Modern GS2C 3237 carries {u2 option_index; u4 value} (parser 0xDB3700,
-        // event 161). The deck-buff asset table that defines `value` is not
-        // materialized server-side yet; the index is echoed from the request.
+        // The reply carries {u2 option_index; u4 value} and the client resolves it
+        // through its deck-buff event. The deck-buff asset table that defines `value`
+        // is not materialized server-side yet; the index is echoed from the request.
         Ok(vec![
             EncyclopediaDeckBuffUsePacket {
                 option_index: deck_idx,
