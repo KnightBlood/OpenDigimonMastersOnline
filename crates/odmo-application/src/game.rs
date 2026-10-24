@@ -2222,6 +2222,8 @@ impl GameApplication {
             }
             // MegaphoneMessage — echo megaphone back to client
             GameRequest::MegaphoneMessage {
+                mode: _,
+                item_code: _,
                 message,
                 item_slot: _,
             } => {
@@ -2232,9 +2234,10 @@ impl GameApplication {
                     .map_err(|error| GameFlowError::Storage(error.to_string()))?
                     .ok_or(GameFlowError::CharacterNotFound(character_id))?;
 
-                // Record 12 would brand the line with the megaphone item, which needs the
-                // consumed item's id; the request only carries an inventory slot whose
-                // framing is still unresolved, so the text travels as a plain shout.
+                // The branded shout record also carries a style byte that selects the
+                // message colour, and the client drops the line unless the item code
+                // resolves to a shouter, so the plain shout form stays until that
+                // style source is settled.
                 Ok(vec![
                     SyncChatRecord::Shout(vec![SyncNamedLine {
                         sender: character.name,

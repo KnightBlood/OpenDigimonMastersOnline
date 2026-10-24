@@ -114,9 +114,15 @@ pub enum GameRequest {
     ShoutMessage {
         message: String,
     },
+    /// `pGame::MsgAllByItem` C→S — opcode 1074.
+    /// `[u1 mode][u4 item_code][text message][u2 item_slot]`.
+    /// Mode 0 burns a megaphone from `item_slot`; an entitlement shout sends mode 1
+    /// with a fixed item code and `0xfffe` in the slot because it owns no slot.
     MegaphoneMessage {
+        mode: u8,
+        item_code: u32,
         message: String,
-        item_slot: i32,
+        item_slot: u16,
     },
     TamerReaction {
         reaction_type: i32,
@@ -8138,9 +8144,16 @@ impl TryFrom<RawPacket> for GameRequest {
                 Ok(Self::ShoutMessage { message })
             }
             game::MEGAPHONE_MESSAGE => {
-                let message = reader.read_string()?;
-                let item_slot = reader.read_i32()?;
-                Ok(Self::MegaphoneMessage { message, item_slot })
+                let mode = reader.read_u8()?;
+                let item_code = reader.read_u32()?;
+                let message = reader.read_modern_utf8_string()?;
+                let item_slot = reader.read_u16()?;
+                Ok(Self::MegaphoneMessage {
+                    mode,
+                    item_code,
+                    message,
+                    item_slot,
+                })
             }
             game::TAMER_REACTION => {
                 let reaction_type = reader.read_i32()?;
@@ -11175,6 +11188,57 @@ mod tests {
             };
             assert_eq!(text, "hello");
         }
+    }
+
+    #[test]
+    fn megaphone_request_carries_mode_item_and_slot() {
+        // The shout request leads with the consumption mode and the megaphone item
+        // code, so the text sits after eight scalar bytes rather than at the front.
+        let mut payload = Vec::new();
+        payload.push(0_u8);
+        payload.extend_from_slice(&160_347_u32.to_le_bytes());
+        payload.extend_from_slice(&5_u16.to_le_bytes());
+        payload.extend_from_slice(b"hello");
+        payload.extend_from_slice(&17_u16.to_le_bytes());
+
+        let request = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::MEGAPHONE_MESSAGE,
+            payload,
+        })
+        .unwrap_or_else(|error| panic!("megaphone should parse: {error}"));
+
+        assert_eq!(
+            request,
+            GameRequest::MegaphoneMessage {
+                mode: 0,
+                item_code: 160_347,
+                message: "hello".to_string(),
+                item_slot: 17,
+            }
+        );
+
+        // An entitlement shout owns no inventory slot and reports the sentinel.
+        let mut entitlement_payload = vec![1_u8];
+        entitlement_payload.extend_from_slice(&160_347_u32.to_le_bytes());
+        entitlement_payload.extend_from_slice(&0_u16.to_le_bytes());
+        entitlement_payload.extend_from_slice(&0xfffe_u16.to_le_bytes());
+        let entitlement = GameRequest::try_from(RawPacket {
+            length: 0,
+            packet_type: game::MEGAPHONE_MESSAGE,
+            payload: entitlement_payload,
+        })
+        .unwrap_or_else(|error| panic!("entitlement shout should parse: {error}"));
+
+        assert_eq!(
+            entitlement,
+            GameRequest::MegaphoneMessage {
+                mode: 1,
+                item_code: 160_347,
+                message: String::new(),
+                item_slot: 0xfffe,
+            }
+        );
     }
 
     #[test]
