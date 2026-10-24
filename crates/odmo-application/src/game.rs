@@ -2754,9 +2754,10 @@ impl GameApplication {
                 inven_slot,
             } => self.handle_change_tamer_model(session, model_id, inven_slot),
             // TamerNameChange — apply a rename item, validate uniqueness, persist, broadcast.
-            GameRequest::TamerNameChange { new_name } => {
-                self.handle_tamer_name_change(session, new_name)
-            }
+            GameRequest::TamerNameChange {
+                inven_slot: _,
+                new_name,
+            } => self.handle_tamer_name_change(session, new_name),
             GameRequest::RareMachineOpen { npc_idx: _ } => Ok(vec![]),
             GameRequest::RareMachineRun {
                 npc_idx: _,

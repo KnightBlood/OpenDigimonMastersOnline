@@ -101,13 +101,16 @@ pub enum GameRequest {
         category: u8,
         extra_slot: u16,
     },
+    /// `pGame::Chat` C→S — opcode 1008. `[text message]`.
     ChatMessage {
         message: String,
     },
+    /// `pGame::Whisper` C→S — opcode 1009. `[text target_name][text message]`.
     WhisperMessage {
         target_name: String,
         message: String,
     },
+    /// `pGame::MsgShout` C→S — opcode 1056. `[text message]`.
     ShoutMessage {
         message: String,
     },
@@ -166,6 +169,7 @@ pub enum GameRequest {
     RefreshScreen,
     /// `pGame::AwayTime` C→S — opcode 1069. Empty payload.
     AwayTime,
+    /// `pDigimon::ChangeName` C→S — opcode 3206. `[i4 inven_slot][text new_name]`.
     DigimonChangeName {
         inven_slot: i32,
         new_name: String,
@@ -380,7 +384,10 @@ pub enum GameRequest {
         model_id: i32,
         inven_slot: i32,
     },
+    /// `pTamer::ChangeName` C→S — opcode 1311. `[i4 inven_slot][text new_name]`.
+    /// The slot is the rename item's inventory position; the client always sends it.
     TamerNameChange {
+        inven_slot: i32,
         new_name: String,
     },
     RareMachineOpen {
@@ -398,6 +405,7 @@ pub enum GameRequest {
         result_type: i32,
         inviter_name: String,
     },
+    /// `pParty::Chat` C→S — opcode 2304. `[text message]`.
     PartyChat {
         message: String,
     },
@@ -440,6 +448,7 @@ pub enum GameRequest {
         target_name: String,
     },
     GuildLeave,
+    /// `pGuild::Chat` C→S — opcode 2114. `[text message]`.
     GuildMessage {
         message: String,
     },
@@ -495,6 +504,7 @@ pub enum GameRequest {
         item_slot: i16,
     },
     CashShopBuyHistory,
+    /// `pBuddy::Add` C→S — opcode 2401. `[text friend_name]`.
     AddFriend {
         friend_name: String,
     },
@@ -8144,7 +8154,7 @@ impl TryFrom<RawPacket> for GameRequest {
             game::AWAY_TIME => Ok(Self::AwayTime),
             game::DIGIMON_CHANGE_NAME => {
                 let inven_slot = reader.read_i32()?;
-                let new_name = reader.read_string()?;
+                let new_name = reader.read_modern_utf8_string()?;
                 Ok(Self::DigimonChangeName {
                     inven_slot,
                     new_name,
@@ -8493,8 +8503,12 @@ impl TryFrom<RawPacket> for GameRequest {
                 })
             }
             game::TAMER_NAME_CHANGE => {
-                let new_name = reader.read_string()?;
-                Ok(Self::TamerNameChange { new_name })
+                let inven_slot = reader.read_i32()?;
+                let new_name = reader.read_modern_utf8_string()?;
+                Ok(Self::TamerNameChange {
+                    inven_slot,
+                    new_name,
+                })
             }
             game::RARE_MACHINE_OPEN => {
                 let npc_idx = reader.read_u32()?;
@@ -8652,7 +8666,7 @@ impl TryFrom<RawPacket> for GameRequest {
             }
             game::CASHSHOP_BUY_HISTORY => Ok(Self::CashShopBuyHistory),
             game::ADD_FRIEND => {
-                let friend_name = reader.read_string()?;
+                let friend_name = reader.read_modern_utf8_string()?;
                 Ok(Self::AddFriend { friend_name })
             }
             game::GUILD_AUTHORITY_MASTER => {
@@ -11178,6 +11192,56 @@ mod tests {
             error,
             ProtocolError::InvalidTextLength(length) if length > 512
         ));
+    }
+
+    #[test]
+    fn rename_and_buddy_requests_decode_modern_text() {
+        // Both renames lead with the rename item's inventory slot, which has to be
+        // consumed before the text or the name decodes from the wrong offset.
+        for opcode in [game::TAMER_NAME_CHANGE, game::DIGIMON_CHANGE_NAME] {
+            let mut payload = Vec::new();
+            payload.extend_from_slice(&7_i32.to_le_bytes());
+            payload.extend_from_slice(&6_u16.to_le_bytes());
+            payload.extend_from_slice(b"Veemon");
+
+            let request = GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: opcode,
+                payload,
+            })
+            .unwrap_or_else(|error| panic!("opcode {opcode} should parse: {error}"));
+
+            let name = match request {
+                GameRequest::TamerNameChange {
+                    inven_slot,
+                    new_name,
+                }
+                | GameRequest::DigimonChangeName {
+                    inven_slot,
+                    new_name,
+                } => {
+                    assert_eq!(inven_slot, 7);
+                    new_name
+                }
+                other => panic!("opcode {opcode} decoded as {other:?}"),
+            };
+            assert_eq!(name, "Veemon");
+        }
+
+        let mut buddy = Vec::new();
+        buddy.extend_from_slice(&4_u16.to_le_bytes());
+        buddy.extend_from_slice(b"Kari");
+        assert_eq!(
+            GameRequest::try_from(RawPacket {
+                length: 0,
+                packet_type: game::ADD_FRIEND,
+                payload: buddy,
+            })
+            .expect("buddy add should parse"),
+            GameRequest::AddFriend {
+                friend_name: "Kari".to_string()
+            }
+        );
     }
 
     #[test]
