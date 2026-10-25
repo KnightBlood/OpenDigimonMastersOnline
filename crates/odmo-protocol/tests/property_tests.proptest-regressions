@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc da99dd1dd89fb6e6c94093290ed5c4be3c2b65549aeb4a1eb971aed92ec84eb7 # shrinks to req = SpiritToDigimon { model_id: 0, name: "", npc_id: 1 }
+cc 70cf7eb1be5cf04433235fb1e0de95b7574453876ea9a6e44938d1749e11e160 # shrinks to model_id = 0, name = "", hatch_npc_id = 1, slot = 0, validation = "", craft_npc_id = 0, digimon_id = 0, hatch_bits = 0, hatch_consumed = [], craft_slot = 0, craft_bits = 0, craft_consumed = [], craft_gained = []
